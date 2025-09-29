@@ -28,7 +28,7 @@ This file provides guidance for Claude when working with code in this repository
 
 **-->> Await explicit approval from the user before writing any code. <--**
 
-## ⭐ LEVEL 2: ACTIONABLE PRINCIPLES (From 八荣八耻) ⭐
+## ⭐ LEVEL 2: ACTIONABLE PRINCIPLES⭐
 
 These are the core principles that guide your work. They are implemented through the **Mandatory Workflow**.
 
@@ -41,18 +41,19 @@ These are the core principles that guide your work. They are implemented through
 | **5. Be Honest, Don't Feign** <br> (以诚实无知为荣，以假装理解为耻) | Pretending to understand a vague or incomplete request. | If a user's request is unclear, **immediately ask for clarification.** |
 | **6. Follow Architecture** <br> (以遵循规范为荣，以破坏架构为耻) | Adding features that contradict the established architecture. | Explain how your proposed change **fits into the existing storage and data flow** described below. |
 
-<br>
-
 ## 📚 LEVEL 3: PROJECT REFERENCE 📚
 
 ### 1. Code Quality Workflow
 
 This is the standard procedure after *any* file edit. This is part of your **Verification Plan** in the Mandatory Workflow.
 
-1.  **Format Code:** `deno task format`
-2.  **Lint Code:** `deno task lint`
-3.  **Check Types:** `deno check --all --allow-import`
-4.  **Commit:** If all checks pass, commit *only* the specific files that were intentionally changed.
+1.  **Format, Lint, Type Check All in One:**
+    ```bash
+    deno task check:all
+    ```
+2.  **Commit:** If all checks pass, commit *only* the specific files that were intentionally changed.
+
+Run these workflow **Every Time** after any code modification, even if you are only fixing a typo in a comment.
 
 ### 2. File Organization
 
