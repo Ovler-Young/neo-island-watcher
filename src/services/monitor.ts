@@ -214,7 +214,6 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 
 		const pagesToFetch: number[] = [];
 		let newReplies: Reply[] = [];
-		let currentReplyCount = newTotalReplyCount;
 		for (let i = startPage + 1; i <= newMaxPage; i++) {
 			pagesToFetch.push(i);
 		}
@@ -227,17 +226,15 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 				for (const reply of newReplies) {
 					await handleNewReply(reply, threadId, threadState, page);
 				}
+				await threadStates.updateThreadState(threadId, {
+					lastReplyCount: 19 * (page - 1) + newReplies.length,
+					lastReplyId:
+						newReplies.length > 0
+							? newReplies[newReplies.length - 1].id
+							: threadState.lastReplyId,
+				});
 			}
-			currentReplyCount = pageData.ReplyCount;
 		}
-
-		await threadStates.updateThreadState(threadId, {
-			lastReplyCount: currentReplyCount,
-			lastReplyId:
-				newReplies.length > 0
-					? newReplies[newReplies.length - 1].id
-					: threadState.lastReplyId,
-		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
 	}
