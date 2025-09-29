@@ -61,35 +61,35 @@ export class XDNMBClient {
 		});
 	}
 
-	async getCDNPaths(): Promise<CDNInfo[]> {
+	getCDNPaths(): Promise<CDNInfo[]> {
 		return this.request<CDNInfo[]>("getCDNPath");
 	}
 
-	async getForumList(): Promise<ForumGroup[]> {
+	getForumList(): Promise<ForumGroup[]> {
 		return this.request<ForumGroup[]>("getForumList");
 	}
 
-	async getTimelineList(): Promise<TimelineInfo[]> {
+	getTimelineList(): Promise<TimelineInfo[]> {
 		return this.request<TimelineInfo[]>("getTimelineList");
 	}
 
-	async getFeed(uuid: string, page = 1): Promise<FeedThread[]> {
+	getFeed(uuid: string, page = 1): Promise<FeedThread[]> {
 		return this.request<FeedThread[]>(`feed?uuid=${uuid}&page=${page}`);
 	}
 
-	async getThread(id: number, page = 1): Promise<ThreadData> {
+	getThread(id: number, page = 1): Promise<ThreadData> {
 		return this.requestWithCookie<ThreadData>(`thread?id=${id}&page=${page}`);
 	}
 
-	async getRef(id: number): Promise<ThreadData> {
+	getRef(id: number): Promise<ThreadData> {
 		return this.requestWithCookie<ThreadData>(`ref?id=${id}`);
 	}
 
-	async getForum(id: number, page = 1): Promise<FeedThread[]> {
+	getForum(id: number, page = 1): Promise<FeedThread[]> {
 		return this.requestWithCookie<FeedThread[]>(`showf?id=${id}&page=${page}`);
 	}
 
-	async getTimeline(id: number, page = 1): Promise<FeedThread[]> {
+	getTimeline(id: number, page = 1): Promise<FeedThread[]> {
 		return this.requestWithCookie<FeedThread[]>(
 			`timeline?id=${id}&page=${page}`,
 		);
@@ -114,12 +114,12 @@ export class XDNMBClient {
 		return true;
 	}
 
-	async addFeed(uuid: string, threadId: string): Promise<string> {
+	addFeed(uuid: string, threadId: string): Promise<string> {
 		const url = `addFeed?uuid=${uuid}&tid=${threadId}`;
 		return this.request<string>(url, { method: "POST" });
 	}
 
-	async delFeed(uuid: string, threadId: string): Promise<string> {
+	delFeed(uuid: string, threadId: string): Promise<string> {
 		const url = `delFeed?uuid=${uuid}&tid=${threadId}`;
 		return this.request<string>(url, { method: "POST" });
 	}
