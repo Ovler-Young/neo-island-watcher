@@ -245,11 +245,8 @@ async function handleNewReply(
 	try {
 		for (const binding of threadState.bindings) {
 			const replyMessage = await formatReplyMessage(
-				reply.id.toString(),
-				threadId,
-				reply.user_hash,
-				reply.now,
-				reply.content,
+				reply,
+				threadId
 			);
 
 			await bot.api.sendMessage(binding.groupId, replyMessage, {

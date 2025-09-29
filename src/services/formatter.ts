@@ -1,5 +1,6 @@
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
+import { Reply } from "../api/types.ts";
 
 export async function formatThreadMessage(
 	threadId: string,
@@ -18,18 +19,15 @@ export async function formatThreadMessage(
 }
 
 export async function formatReplyMessage(
-	replyId: string,
+	reply: Reply,
 	threadId: string,
-	writer: string,
-	time: string,
-	content: string,
 	page = 1,
 ): Promise<string> {
 	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
-	const formattedContent = await processContent(content);
+	const formattedContent = await processContent(reply.content);
 
 	return (
-		`<a href="${replyUrl}">${replyId}</a> | #${writer} | ${time}\n` +
+		`<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash} | ${reply.now}\n` +
 		formattedContent
 	);
 }
