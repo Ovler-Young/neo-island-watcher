@@ -1,4 +1,4 @@
-import type { FeedThread, Reply, ThreadData } from "../api/types.ts";
+import type { FeedThread, Reply } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { bot } from "../bot/bot.ts";
 import { config } from "../config.ts";
@@ -155,7 +155,7 @@ async function handleNewThread(
 				message_thread_id: topicId,
 				parse_mode: "HTML",
 				link_preview_options: {
-		  			is_disabled: !thread.img && !thread.ext,
+					is_disabled: !thread.img && !thread.ext,
 				},
 			});
 
@@ -193,32 +193,50 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 		if (!threadState) {
 			return;
 		}
+		const lastCount = threadState.lastReplyCount || 0;
 
-		const threadData: ThreadData = await xdnmbClient.getUpdatedThread(
+		const startPage = Math.max(1, Math.ceil(lastCount / 19));
+
+		const initialPageData = await xdnmbClient.getThread(
 			Number(threadId),
-			threadState.lastReplyCount,
-			threadState.lastReplyId,
+			startPage,
 		);
+		const newTotalReplyCount = initialPageData.ReplyCount;
 
-		const currentReplyCount = threadData.ReplyCount;
-
-		if (threadData.Replies.length === 0) {
+		if (newTotalReplyCount <= lastCount) {
+			initialPageData.Replies = [];
 			return;
 		}
-
 		console.log(
-			`📬 Thread ${threadId} has  ${threadData.Replies.length} new replies: ${threadState.lastReplyCount} -> ${currentReplyCount}`,
+			`📬 Thread ${threadId} has  ${initialPageData.Replies.length} new replies: ${threadState.lastReplyCount} -> ${newTotalReplyCount}`,
 		);
+		const newMaxPage = Math.ceil(newTotalReplyCount / 19);
 
-		const newReplies = threadData.Replies;
-
-		for (const reply of newReplies) {
-			await handleNewReply(reply, threadId, threadState);
+		const pagesToFetch: number[] = [];
+		let newReplies: Reply[] = [];
+		let currentReplyCount = newTotalReplyCount;
+		for (let i = startPage + 1; i <= newMaxPage; i++) {
+			pagesToFetch.push(i);
+		}
+		for (const page of pagesToFetch) {
+			const pageData = await xdnmbClient.getThread(Number(threadId), page);
+			newReplies = pageData.Replies.filter(
+				(reply) => reply.id > threadState.lastReplyId,
+			);
+			if (newReplies.length > 0) {
+				for (const reply of newReplies) {
+					await handleNewReply(reply, threadId, threadState, page);
+				}
+			}
+			currentReplyCount = pageData.ReplyCount;
 		}
 
 		await threadStates.updateThreadState(threadId, {
 			lastReplyCount: currentReplyCount,
-			lastReplyId: threadData.Replies[threadData.Replies.length - 1]?.id || 0,
+			lastReplyId:
+				newReplies.length > 0
+					? newReplies[newReplies.length - 1].id
+					: threadState.lastReplyId,
 		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
@@ -229,19 +247,23 @@ async function handleNewReply(
 	reply: Reply,
 	threadId: string,
 	threadState: ThreadStateData,
+	page = 1,
 ): Promise<void> {
-	if (!threadState.writer.includes(reply.user_hash) && !threadState.writer.includes("*")) {
+	if (
+		!threadState.writer.includes(reply.user_hash) &&
+		!threadState.writer.includes("*")
+	) {
 		return;
 	}
 	try {
 		for (const binding of threadState.bindings) {
-			const replyMessage = await formatReplyMessage(reply, threadId);
+			const replyMessage = await formatReplyMessage(reply, threadId, page);
 
 			await bot.api.sendMessage(binding.groupId, replyMessage, {
 				message_thread_id: binding.topicId,
 				parse_mode: "HTML",
 				link_preview_options: {
-          			is_disabled: !reply.img && !reply.ext,
+					is_disabled: !reply.img && !reply.ext,
 				},
 			});
 		}
