@@ -1,0 +1,19 @@
+{
+  "tasks": {
+    "dev": "deno run --unstable-cron --watch --allow-import --allow-net --allow-env --env-file --allow-read --allow-write src/main.ts",
+    "start": "deno run --unstable-cron --allow-import --allow-net --allow-env --env-file --allow-read --allow-write src/main.ts",
+    "format": "biome format --write .",
+    "lint": "biome lint --write ."
+  },
+  "imports": {
+    "grammy": "https://deno.land/x/grammy/mod.ts",
+    "@std/json": "jsr:@std/json@^1.0.1",
+    "@std/fs": "jsr:@std/fs@^1.0.5",
+    "@std/path": "jsr:@std/path@^1.0.8"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "unstable": ["cron"]
+}
