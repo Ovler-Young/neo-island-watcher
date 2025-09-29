@@ -154,6 +154,9 @@ async function handleNewThread(
 			const sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
 				message_thread_id: topicId,
 				parse_mode: "HTML",
+				link_preview_options: {
+		  			is_disabled: !thread.img && !thread.ext,
+				},
 			});
 
 			// Pin the initial message
@@ -237,6 +240,9 @@ async function handleNewReply(
 			await bot.api.sendMessage(binding.groupId, replyMessage, {
 				message_thread_id: binding.topicId,
 				parse_mode: "HTML",
+				link_preview_options: {
+          			is_disabled: !reply.img && !reply.ext,
+				},
 			});
 		}
 	} catch (error) {
