@@ -14,5 +14,5 @@ bot.catch((err) => {
 });
 
 bot.on("message", (ctx) => {
-	console.log(`Message from ${ctx.from?.username}: ${ctx.message.text}`);
+	console.log(`Message from ${ctx.from?.username}: ${JSON.stringify(ctx)}`);
 });
