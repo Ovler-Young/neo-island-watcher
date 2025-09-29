@@ -222,11 +222,16 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 
 		const pagesToFetch: number[] = [];
 		let newReplies: Reply[] = [];
-		for (let i = startPage + 1; i <= newMaxPage; i++) {
+		for (let i = startPage; i <= newMaxPage; i++) {
 			pagesToFetch.push(i);
 		}
 		for (const page of pagesToFetch) {
-			const pageData = await xdnmbClient.getThread(Number(threadId), page);
+			let pageData;
+			if (page !== startPage) {
+				pageData = await xdnmbClient.getThread(Number(threadId), page);
+			} else {
+				pageData = initialPageData;
+			}
 			newReplies = pageData.Replies.filter(
 				(reply) => reply.id > threadState.lastReplyId,
 			);
