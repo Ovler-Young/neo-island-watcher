@@ -1,4 +1,4 @@
-import { FeedThread, Reply, Thread } from "../api/types.ts";
+import type { FeedThread, Reply, Thread } from "../api/types.ts";
 
 export function extractTitleFromContent(content: string): string | null {
 	if (!content) return null;
@@ -31,9 +31,7 @@ export function extractTitleFromContent(content: string): string | null {
 	return extractedTitle;
 }
 
-export function formatTitle(
-	thread: FeedThread | Thread | Reply,
-): string {
+export function formatTitle(thread: FeedThread | Thread | Reply): string {
 	if (!thread.title || thread.title === "无标题") {
 		if (thread.name && thread.name !== "无名氏") {
 			return thread.name;

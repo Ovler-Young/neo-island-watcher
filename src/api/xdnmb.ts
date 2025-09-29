@@ -85,7 +85,11 @@ export class XDNMBClient {
 		return this.getUpdatedThread(id);
 	}
 
-	async getUpdatedThread(id: number, lastCount: number = 0, lastReplyId: number = 0): Promise<ThreadData> {
+	async getUpdatedThread(
+		id: number,
+		lastCount: number = 0,
+		lastReplyId: number = 0,
+	): Promise<ThreadData> {
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
 		const initialPageData = await this.getThread(id, startPage);
@@ -109,18 +113,22 @@ export class XDNMBClient {
 		for (let i = 0; i < pagesToFetch.length; i += concurrencyLimit) {
 			const pageChunk = pagesToFetch.slice(i, i + concurrencyLimit);
 
-			const chunkPromises = pageChunk.map(pageNum => this.getThread(id, pageNum));
+			const chunkPromises = pageChunk.map((pageNum) =>
+				this.getThread(id, pageNum),
+			);
 			const chunkData = await Promise.all(chunkPromises);
-			
+
 			allRemainingPagesData.push(...chunkData);
 		}
 
 		const allFetchedReplies = [
 			...initialPageData.Replies,
-			...allRemainingPagesData.flatMap(page => page.Replies)
+			...allRemainingPagesData.flatMap((page) => page.Replies),
 		];
 
-		const newReplies = allFetchedReplies.filter(reply => reply.id > lastReplyId);
+		const newReplies = allFetchedReplies.filter(
+			(reply) => reply.id > lastReplyId,
+		);
 
 		initialPageData.Replies = newReplies;
 		return initialPageData;

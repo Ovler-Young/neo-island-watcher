@@ -149,13 +149,7 @@ async function handleNewThread(
 			await new Promise((resolve) => setTimeout(resolve, 4000));
 
 			// Send initial thread message to the topic
-			const initialMessage = await formatThreadMessage(
-				thread.id,
-				thread.user_hash,
-				thread.title,
-				thread.now,
-				thread.content,
-			);
+			const initialMessage = await formatThreadMessage(thread);
 
 			const sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
 				message_thread_id: topicId,
@@ -205,7 +199,6 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 
 		const currentReplyCount = threadData.ReplyCount;
 
-
 		if (threadData.Replies.length === 0) {
 			return;
 		}
@@ -239,10 +232,7 @@ async function handleNewReply(
 	}
 	try {
 		for (const binding of threadState.bindings) {
-			const replyMessage = await formatReplyMessage(
-				reply,
-				threadId
-			);
+			const replyMessage = await formatReplyMessage(reply, threadId);
 
 			await bot.api.sendMessage(binding.groupId, replyMessage, {
 				message_thread_id: binding.topicId,

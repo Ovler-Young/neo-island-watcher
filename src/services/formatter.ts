@@ -1,27 +1,21 @@
+import type { FeedThread, Reply } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
-import { Reply, Thread } from "../api/types.ts";
 
-export async function formatThreadMessage(
-	thread: Thread,
-	title: string,
-): Promise<string> {
+export async function formatThreadMessage(thread: FeedThread): Promise<string> {
 	const threadUrl = xdnmbClient.buildThreadUrl(thread.id.toString());
 	const formattedContent = await processContent(thread.content);
 
 	let header = `<a href="${threadUrl}">${thread.id}</a> | #${thread.user_hash}`;
 	if (thread.title && thread.title !== "无标题") {
-		header += " | " + thread.title;
+		header += ` | ${thread.title}`;
 	}
 	if (thread.name && thread.name !== "无名氏") {
-		header += " | " + thread.name;
+		header += ` | ${thread.name}`;
 	}
 	header += ` | ${thread.now} \n`;
 
-	return (
-		header +
-		formattedContent
-	);
+	return header + formattedContent;
 }
 
 export async function formatReplyMessage(
@@ -34,17 +28,14 @@ export async function formatReplyMessage(
 
 	let header = `<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash}`;
 	if (reply.title && reply.title !== "无标题") {
-		header += " | " + reply.title;
+		header += ` | ${reply.title}`;
 	}
 	if (reply.name && reply.name !== "无名氏") {
-		header += " | " + reply.name;
+		header += ` | ${reply.name}`;
 	}
 	header += ` | ${reply.now} \n`;
 
-	return (
-		header +
-		formattedContent
-	);
+	return header + formattedContent;
 }
 
 async function processContent(content: string): Promise<string> {
