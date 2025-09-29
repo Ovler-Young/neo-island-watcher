@@ -50,7 +50,7 @@ export async function ensureCookie(ctx: Context) {
 
 export function withErrorHandler<T extends Context>(
 	handler: (ctx: T) => Promise<void>,
-	errorMessage = ERROR_MESSAGES.GENERIC_ERROR,
+	errorMessage: string = ERROR_MESSAGES.GENERIC_ERROR,
 ) {
 	return async (ctx: T) => {
 		try {
