@@ -12,6 +12,8 @@
     "npm:@biomejs/biome@*": "2.2.4",
     "npm:@biomejs/biome@2.2.4": "2.2.4",
     "npm:@biomejs/biome@^2.2.4": "2.2.4",
+    "npm:@grammyjs/types@*": "3.22.2",
+    "npm:@grammyjs/types@^3.22.2": "3.22.2",
     "npm:@types/node@*": "24.2.0"
   },
   "jsr": {
@@ -99,6 +101,9 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
+    "@grammyjs/types@3.22.2": {
+      "integrity": "sha512-uu7DX2ezhnBPozL3bXHmwhLvaFsh59E4QyviNH4Cij7EdVekYrs6mCzeXsa2pDk30l3uXo7DBahlZLzTPtpYZg=="
+    },
     "@types/node@24.2.0": {
       "integrity": "sha512-3xyG3pMCq3oYCNg7/ZP+E1ooTaGB4cG8JWRsqqOYQdbWNY4zbaV0Ennrd7stjiJEFZCaybcIgpTjJWHRfBSIDw==",
       "dependencies": [
@@ -159,7 +164,8 @@
       "jsr:@std/fs@^1.0.5",
       "jsr:@std/json@^1.0.1",
       "jsr:@std/path@^1.0.8",
-      "npm:@biomejs/biome@^2.2.4"
+      "npm:@biomejs/biome@^2.2.4",
+      "npm:@grammyjs/types@^3.22.2"
     ]
   }
 }

@@ -12,7 +12,7 @@ export function setupFeedCommands(bot: Bot) {
 				return;
 			}
 
-			const threadId = extractThreadIdFromTopic(ctx);
+			const threadId = await extractThreadIdFromTopic(ctx);
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +
@@ -56,7 +56,7 @@ export function setupFeedCommands(bot: Bot) {
 				return;
 			}
 
-			const threadId = extractThreadIdFromTopic(ctx);
+			const threadId = await extractThreadIdFromTopic(ctx);
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +

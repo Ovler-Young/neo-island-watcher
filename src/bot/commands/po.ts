@@ -17,11 +17,12 @@ export function setupPoCommands(bot: Bot) {
 				return;
 			}
 
-			const threadId = extractThreadIdFromTopic(ctx);
+			const threadId = await extractThreadIdFromTopic(ctx);
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
+						"This command should be used in a thread topic.\n" +
+						JSON.stringify(ctx),
 				);
 				return;
 			}
@@ -60,11 +61,12 @@ export function setupPoCommands(bot: Bot) {
 				return;
 			}
 
-			const threadId = extractThreadIdFromTopic(ctx);
+			const threadId = await extractThreadIdFromTopic(ctx);
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
+						"This command should be used in a thread topic.\n" +
+						JSON.stringify(ctx),
 				);
 				return;
 			}

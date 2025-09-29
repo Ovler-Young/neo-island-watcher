@@ -67,6 +67,14 @@ class GroupBindingsStorageImpl extends BaseStorage<GroupBindingsStorage> {
 			return data;
 		});
 	}
+
+	async getThreadIdFromGroup(
+		groupId: string,
+		threadId: string,
+	): Promise<number | null> {
+		const data = await this.read();
+		return data[groupId]?.topics[threadId]?.topicId || null;
+	}
 }
 
 export const groupBindings = new GroupBindingsStorageImpl();
