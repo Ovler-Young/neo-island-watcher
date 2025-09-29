@@ -26,8 +26,17 @@ export async function formatReplyMessage(
 	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
 	const formattedContent = await processContent(reply.content);
 
+	let header = `<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash}`;
+	if (reply.title && reply.title !== "无标题") {
+		header += " | " + reply.title;
+	}
+	if (reply.name && reply.name !== "无名氏") {
+		header += " | " + reply.name;
+	}
+	header += " | ${reply.now} \n";
+
 	return (
-		`<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash} | ${reply.now}\n` +
+		header +
 		formattedContent
 	);
 }
