@@ -70,10 +70,19 @@ class GroupBindingsStorageImpl extends BaseStorage<GroupBindingsStorage> {
 
 	async getThreadIdFromGroup(
 		groupId: string,
-		threadId: string,
+		topicId: number,
 	): Promise<number | null> {
 		const data = await this.read();
-		return data[groupId]?.topics[threadId]?.topicId || null;
+		const groupBinding = data[groupId];
+		if (!groupBinding) {
+			return null;
+		}
+		for (const [threadId, binding] of Object.entries(groupBinding.topics)) {
+			if (binding.topicId === topicId) {
+				return parseInt(threadId, 10);
+			}
+		}
+		return null;
 	}
 }
 

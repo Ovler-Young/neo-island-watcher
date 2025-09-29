@@ -8,12 +8,13 @@ export async function extractThreadIdFromTopic(ctx: {
 	}
 
 	const message_thread_id = ctx.message.message_thread_id;
+	console.log("Extracted message_thread_id:", message_thread_id);
 	if (message_thread_id) {
 		return (
 			(
 				await groupBindings.getThreadIdFromGroup(
 					ctx.message.chat.id.toString(),
-					message_thread_id.toString(),
+					message_thread_id,
 				)
 			)?.toString() || null
 		);
