@@ -202,15 +202,7 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 			return;
 		}
 
-		// Try to get thread data, with authentication if needed
-		let threadData: ThreadData;
-		try {
-			threadData = await xdnmbClient.getThread(Number(threadId));
-		} catch (_error) {
-			// Thread might require authentication - skip for now
-			// TODO: Implement authentication fallback
-			return;
-		}
+		const threadData: ThreadData = await xdnmbClient.getThread(Number(threadId));
 
 		const currentReplyCount = threadData.ReplyCount;
 
