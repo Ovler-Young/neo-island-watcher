@@ -32,39 +32,11 @@ export function setupFeedCommands(bot: Bot) {
 				return;
 			}
 
-			// Try to verify thread exists and is accessible
-			const groupId = ctx.chat.id.toString();
-			try {
-				await xdnmbClient.getThread(Number(threadId));
-			} catch (_error) {
-				// Thread might require authentication, try with cookie if available
-				const cookieData = await groupCookies.getCookie(groupId);
-				if (cookieData) {
-					try {
-						await xdnmbClient.getThreadWithCookie(
-							Number(threadId),
-							cookieData.cookie,
-						);
-					} catch (_cookieError) {
-						await ctx.reply(
-							`❌ Cannot access thread ${threadId}.\n` +
-								"The thread may not exist or requires special permissions.",
-						);
-						return;
-					}
-				} else {
-					await ctx.reply(
-						`❌ Cannot access thread ${threadId}.\n` +
-							"The thread may require authentication. Use /setcookie first if needed.",
-					);
-					return;
-				}
-			}
-
 			const result = await xdnmbClient.addFeed(
 				groupBinding.boundFeeds,
 				threadId,
 			);
+			await groupCookies.updateLastUsed(ctx.chat.id.toString());
 
 			if (result === "订阅大成功→_→") {
 				await ctx.reply(`✅ Subscribed to thread ${threadId}!`);
