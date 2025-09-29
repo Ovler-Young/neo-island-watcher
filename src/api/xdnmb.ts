@@ -36,6 +36,20 @@ export class XDNMBClient {
 		return await response.json();
 	}
 
+	private async requestWithCookie<T>(
+		endpoint: string,
+		cookie: string,
+		options: RequestInit = {},
+	): Promise<T> {
+		return this.request<T>(endpoint, {
+			...options,
+			headers: {
+				Cookie: `userhash=${cookie}`,
+				...options.headers,
+			},
+		});
+	}
+
 	async getCDNPaths(): Promise<CDNInfo[]> {
 		return this.request<CDNInfo[]>("getCDNPath");
 	}
@@ -54,6 +68,17 @@ export class XDNMBClient {
 
 	async getThread(id: number, page = 1): Promise<ThreadData> {
 		return this.request<ThreadData>(`thread?id=${id}&page=${page}`);
+	}
+
+	async getThreadWithCookie(
+		id: number,
+		cookie: string,
+		page = 1,
+	): Promise<ThreadData> {
+		return this.requestWithCookie<ThreadData>(
+			`thread?id=${id}&page=${page}`,
+			cookie,
+		);
 	}
 
 	async addFeed(uuid: string, threadId: string): Promise<string> {
