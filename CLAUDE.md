@@ -21,8 +21,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use proper module organization and clear separation of concerns
 
 ### Before Any Task
-- Always ask context7 for most recent documentation
+- **Always** ask context7 for most recent documentation
 - If context7 unavailable, use deepwiki for reference
+- Always See `docs/` for detailed API and integration documentation in the very start.
+  - 01-api.md
+  - 02-telegram-integration.md
+  - 03-storage.md
 
 ### Code Quality Workflow
 1. After any file edit, immediately run:
@@ -74,4 +78,3 @@ JSON file-based persistence:
 - `/r` - Roll dice
 - `/subscribe` - Manage subscriptions
 
-See `docs/` for detailed API and integration documentation.
