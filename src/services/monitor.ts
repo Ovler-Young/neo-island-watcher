@@ -239,6 +239,9 @@ async function handleNewReply(
 	threadId: string,
 	threadState: ThreadStateData,
 ): Promise<void> {
+	if (!threadState.writer.includes(reply.user_hash)) {
+		return;
+	}
 	try {
 		for (const binding of threadState.bindings) {
 			const replyMessage = await formatReplyMessage(
