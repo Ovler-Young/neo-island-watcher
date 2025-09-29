@@ -1,4 +1,5 @@
 import { config } from "../config.ts";
+import { groupCookies } from "../storage/group-cookies.ts";
 import type {
 	CDNInfo,
 	FeedThread,
@@ -40,9 +41,17 @@ export class XDNMBClient {
 
 	private async requestWithCookie<T>(
 		endpoint: string,
-		cookie: string,
 		options: RequestInit = {},
+		cookie?: string,
 	): Promise<T> {
+		if (!cookie) {
+			const randomCookie = await groupCookies.getRandomCookie();
+			if (randomCookie) {
+				cookie = randomCookie.cookie;
+			} else {
+				throw new Error("No cookie available for authenticated request");
+			}
+		}
 		return this.request<T>(endpoint, {
 			...options,
 			headers: {
@@ -69,7 +78,21 @@ export class XDNMBClient {
 	}
 
 	async getThread(id: number, page = 1): Promise<ThreadData> {
-		return this.request<ThreadData>(`thread?id=${id}&page=${page}`);
+		return this.requestWithCookie<ThreadData>(`thread?id=${id}&page=${page}`);
+	}
+
+	async getRef(id: number): Promise<ThreadData> {
+		return this.requestWithCookie<ThreadData>(`ref?id=${id}`);
+	}
+
+	async getForum(id: number, page = 1): Promise<FeedThread[]> {
+		return this.requestWithCookie<FeedThread[]>(`showf?id=${id}&page=${page}`);
+	}
+
+	async getTimeline(id: number, page = 1): Promise<FeedThread[]> {
+		return this.requestWithCookie<FeedThread[]>(
+			`timeline?id=${id}&page=${page}`,
+		);
 	}
 
 	async isThread(id: number): Promise<boolean> {
@@ -89,17 +112,6 @@ export class XDNMBClient {
 
 		// If it's not "该串不存在" and response was ok, assume it's a valid thread
 		return true;
-	}
-
-	async getThreadWithCookie(
-		id: number,
-		cookie: string,
-		page = 1,
-	): Promise<ThreadData> {
-		return this.requestWithCookie<ThreadData>(
-			`thread?id=${id}&page=${page}`,
-			cookie,
-		);
 	}
 
 	async addFeed(uuid: string, threadId: string): Promise<string> {

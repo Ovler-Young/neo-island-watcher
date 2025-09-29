@@ -56,6 +56,24 @@ class GroupCookiesStorage extends BaseStorage<GroupCookieStorage> {
 			return newData;
 		});
 	}
+
+	async getRandomCookie(): Promise<GroupCookieData | null> {
+		const data = await this.read();
+		const cookies = Object.values(data);
+
+		if (cookies.length === 0) {
+			return null;
+		}
+
+		// Randomly select a cookie from available cookies
+		const randomIndex = Math.floor(Math.random() * cookies.length);
+		return cookies[randomIndex];
+	}
+
+	async getAllCookies(): Promise<GroupCookieData[]> {
+		const data = await this.read();
+		return Object.values(data);
+	}
 }
 
 export const groupCookies = new GroupCookiesStorage();
