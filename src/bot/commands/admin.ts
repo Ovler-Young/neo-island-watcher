@@ -32,10 +32,6 @@ export function setupAdminCommands(bot: Bot) {
 			await groupCookies.setCookie(groupId, userId, cookie, telegramUserId);
 
 			await ctx.reply("✅ Cookie set successfully!");
-
-			setTimeout(() => {
-				ctx.deleteMessage().catch(() => {});
-			}, 5000);
 		} catch (error) {
 			console.error("Error in setcookie command:", error);
 			await ctx.reply("❌ Failed to set cookie. Please try again.");
