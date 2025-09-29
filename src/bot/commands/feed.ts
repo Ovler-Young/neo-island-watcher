@@ -1,11 +1,13 @@
-import type { Bot } from "grammy";
+import { CommandGroup } from "@grammyjs/commands";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";
 import { extractThreadIdFromTopic } from "../../utils/telegram.ts";
 
-export function setupFeedCommands(bot: Bot) {
-	bot.command("subscribe", async (ctx) => {
+export function createFeedCommands() {
+	const commands = new CommandGroup();
+
+	commands.command("subscribe", "Subscribe to a thread", async (ctx) => {
 		try {
 			if (!ctx.chat || ctx.chat.type === "private") {
 				await ctx.reply("❌ This command only works in groups.");
@@ -49,7 +51,7 @@ export function setupFeedCommands(bot: Bot) {
 		}
 	});
 
-	bot.command("unsubscribe", async (ctx) => {
+	commands.command("unsubscribe", "Unsubscribe from a thread", async (ctx) => {
 		try {
 			if (!ctx.chat || ctx.chat.type === "private") {
 				await ctx.reply("❌ This command only works in groups.");
@@ -91,4 +93,6 @@ export function setupFeedCommands(bot: Bot) {
 			await ctx.reply("❌ Failed to unsubscribe. Please try again.");
 		}
 	});
+
+	return commands;
 }

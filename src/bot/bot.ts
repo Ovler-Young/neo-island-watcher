@@ -7,7 +7,7 @@ export const bot = new Bot(config.telegramBotToken);
 
 bot.api.config.use(autoRetry());
 
-setupCommands(bot);
+await setupCommands(bot);
 
 bot.catch((err) => {
 	console.error("Bot error:", err);

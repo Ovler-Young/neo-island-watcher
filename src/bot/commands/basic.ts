@@ -1,23 +1,29 @@
-import type { Bot } from "grammy";
+import { CommandGroup } from "@grammyjs/commands";
 
-export function setupBasicCommands(bot: Bot) {
-	bot.command("start", (ctx) => {
-		ctx.reply(
-			"🏝️ Welcome to Neo Island Watcher!\n\n" +
-				"This bot monitors XDNMB threads and posts updates to Telegram topics.\n\n" +
-				"Available commands:\n" +
-				"• /setcookie - Set authentication cookie\n" +
-				"• /bindfeed - Bind a feed to this group\n" +
-				"• /unbindfeed - Unbind feed from this group\n" +
-				"• /reply - Reply to a thread\n" +
-				"• /r - Roll dice in a thread\n" +
-				"• /subscribe - Subscribe to a thread\n" +
-				"• /unsubscribe - Unsubscribe from a thread\n" +
-				"• /help - Show this help message",
-		);
-	});
+export function createBasicCommands() {
+	const commands = new CommandGroup();
 
-	bot.command("help", (ctx) => {
+	commands.command(
+		"start",
+		"Show welcome message and available commands",
+		(ctx) => {
+			ctx.reply(
+				"🏝️ Welcome to Neo Island Watcher!\n\n" +
+					"This bot monitors XDNMB threads and posts updates to Telegram topics.\n\n" +
+					"Available commands:\n" +
+					"• /setcookie - Set authentication cookie\n" +
+					"• /bindfeed - Bind a feed to this group\n" +
+					"• /unbindfeed - Unbind feed from this group\n" +
+					"• /reply - Reply to a thread\n" +
+					"• /r - Roll dice in a thread\n" +
+					"• /subscribe - Subscribe to a thread\n" +
+					"• /unsubscribe - Unsubscribe from a thread\n" +
+					"• /help - Show this help message",
+			);
+		},
+	);
+
+	commands.command("help", "Show detailed help information", (ctx) => {
 		ctx.reply(
 			"🆘 Neo Island Watcher Help\n\n" +
 				"Commands:\n" +
@@ -31,4 +37,6 @@ export function setupBasicCommands(bot: Bot) {
 				"💡 Most commands work in group topics for specific threads.",
 		);
 	});
+
+	return commands;
 }

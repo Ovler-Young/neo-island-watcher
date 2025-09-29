@@ -1,10 +1,12 @@
-import type { Bot } from "grammy";
+import { CommandGroup } from "@grammyjs/commands";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";
 import { extractThreadIdFromTopic } from "../../utils/telegram.ts";
 
-export function setupThreadCommands(bot: Bot) {
-	bot.command("reply", async (ctx) => {
+export function createThreadCommands() {
+	const commands = new CommandGroup();
+
+	commands.command("reply", "Reply to a thread (use in topic)", async (ctx) => {
 		try {
 			if (!ctx.chat || ctx.chat.type === "private") {
 				await ctx.reply("❌ This command only works in groups.");
@@ -60,7 +62,7 @@ export function setupThreadCommands(bot: Bot) {
 		}
 	});
 
-	bot.command("r", async (ctx) => {
+	commands.command("r", "Roll dice in a thread", async (ctx) => {
 		try {
 			if (!ctx.chat || ctx.chat.type === "private") {
 				await ctx.reply("❌ This command only works in groups.");
@@ -108,4 +110,6 @@ export function setupThreadCommands(bot: Bot) {
 			await ctx.reply("❌ Failed to roll dice. Please try again.");
 		}
 	});
+
+	return commands;
 }
