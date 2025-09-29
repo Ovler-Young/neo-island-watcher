@@ -57,6 +57,16 @@ function processContent(content: string): string {
 		"<b>$1</b><small>[$2]</small>",
 	);
 
+	processed = processed.replace(/<br \/>/g, "\n");
+	processed = processed.replace(/<[^>]+>/g, "");
+	processed = processed.replace(/&nbsp;/g, " ");
+	processed = processed.replace(/&lt;/g, "<");
+	processed = processed.replace(/&gt;/g, ">");
+	processed = processed.replace(/&amp;/g, "&");
+	processed = processed.replace(/&quot;/g, '"');
+	processed = processed.replace(/&#39;/g, "'");
+	processed = processed.trim();
+
 	return processed;
 }
 
