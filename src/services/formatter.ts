@@ -50,6 +50,28 @@ export async function formatReplyMessage(
 	return header + formattedContent;
 }
 
+function escapeHtmlExceptTags(text: string): string {
+	// Split text into parts: HTML tags and regular text
+	const tagRegex =
+		/(<\/?(?:a|spoiler|font|b|small|code|pre|blockquote|i|u|s|strong|em|ins|strike|del|span|tg-spoiler|tg-emoji)(?:\s[^>]*)?>)/gi;
+	const parts = text.split(tagRegex);
+
+	// Escape special characters only in non-tag parts
+	return parts
+		.map((part, index) => {
+			// Odd indices are the matched tags (kept as-is)
+			if (index % 2 === 1) {
+				return part;
+			}
+			// Even indices are text between tags (escape special chars)
+			return part
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;");
+		})
+		.join("");
+}
+
 async function processContent(content: string): Promise<string> {
 	let processed = content;
 
@@ -101,6 +123,9 @@ async function processContent(content: string): Promise<string> {
 	processed = processed.replace(/&quot;/g, '"');
 	processed = processed.replace(/&#39;/g, "'");
 	processed = processed.replace(/\n{3,}/g, "\n\n");
+
+	// Escape special characters that aren't part of allowed HTML tags
+	processed = escapeHtmlExceptTags(processed);
 
 	return processed;
 }
