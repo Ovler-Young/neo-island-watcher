@@ -21,8 +21,7 @@ export function setupPoCommands(bot: Bot) {
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.\n" +
-						JSON.stringify(ctx),
+						"This command should be used in a thread topic.\n"
 				);
 				return;
 			}
@@ -65,8 +64,7 @@ export function setupPoCommands(bot: Bot) {
 			if (!threadId) {
 				await ctx.reply(
 					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.\n" +
-						JSON.stringify(ctx),
+						"This command should be used in a thread topic.\n"
 				);
 				return;
 			}
