@@ -1,15 +1,15 @@
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
 
-export function formatThreadMessage(
+export async function formatThreadMessage(
 	threadId: string,
 	writer: string,
 	title: string,
 	time: string,
 	content: string,
-): string {
+): Promise<string> {
 	const threadUrl = xdnmbClient.buildThreadUrl(threadId);
-	const formattedContent = processContent(content);
+	const formattedContent = await processContent(content);
 
 	return (
 		`<a href="${threadUrl}">${threadId}</a> | #${writer} | ${title} | ${time}\n` +
@@ -17,16 +17,16 @@ export function formatThreadMessage(
 	);
 }
 
-export function formatReplyMessage(
+export async function formatReplyMessage(
 	replyId: string,
 	threadId: string,
 	writer: string,
 	time: string,
 	content: string,
 	page = 1,
-): string {
+): Promise<string> {
 	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
-	const formattedContent = processContent(content);
+	const formattedContent = await processContent(content);
 
 	return (
 		`<a href="${replyUrl}">${replyId}</a> | #${writer} | ${time}\n` +
@@ -34,13 +34,32 @@ export function formatReplyMessage(
 	);
 }
 
-function processContent(content: string): string {
+async function processContent(content: string): Promise<string> {
 	let processed = content;
 
-	processed = processed.replace(/&gt;&gt;No\.(\d+)/g, (_match, postId) => {
-		const refUrl = xdnmbClient.buildRefUrl(postId);
-		return `<a href="${refUrl}">&gt;&gt;No.${postId}</a>`;
-	});
+	const regex = /&gt;&gt;No\.(\d+)/g;
+	let matchResult: RegExpExecArray | null; // Explicitly type matchResult
+	let lastIndex = 0;
+	const parts: (string | Promise<string>)[] = [];
+
+	// Refactor while loop to avoid assignment in expression
+	while (true) {
+		matchResult = regex.exec(processed);
+		if (matchResult === null) {
+			break;
+		}
+		parts.push(processed.substring(lastIndex, matchResult.index));
+		const postId = matchResult[1];
+		const isThread = await xdnmbClient.isThread(parseInt(postId, 10)); // Add radix
+		const url = isThread
+			? xdnmbClient.buildThreadUrl(postId)
+			: xdnmbClient.buildRefUrl(postId);
+		parts.push(`<a href="${url}">&gt;&gt;No.${postId}</a>`);
+		lastIndex = regex.lastIndex;
+	}
+	parts.push(processed.substring(lastIndex));
+
+	processed = (await Promise.all(parts)).join("");
 
 	processed = processed.replace(
 		/<font color="#789922">&gt;([^<]+)<\/font>/g,

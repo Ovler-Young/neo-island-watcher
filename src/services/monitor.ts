@@ -154,7 +154,7 @@ async function handleNewThread(
 			await new Promise((resolve) => setTimeout(resolve, 4000));
 
 			// Send initial thread message to the topic
-			const initialMessage = formatThreadMessage(
+			const initialMessage = await formatThreadMessage(
 				thread.id,
 				thread.user_hash,
 				thread.title,
@@ -244,7 +244,7 @@ async function handleNewReply(
 ): Promise<void> {
 	try {
 		for (const binding of threadState.bindings) {
-			const replyMessage = formatReplyMessage(
+			const replyMessage = await formatReplyMessage(
 				reply.id.toString(),
 				threadId,
 				reply.user_hash,

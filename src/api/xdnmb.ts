@@ -70,6 +70,25 @@ export class XDNMBClient {
 		return this.request<ThreadData>(`thread?id=${id}&page=${page}`);
 	}
 
+	async isThread(id: number): Promise<boolean> {
+		const url = `${this.apiBase}/Api/thread?id=${id}`;
+		const response = await fetch(url, {});
+
+		if (!response.ok) {
+			// If response is not ok, it's an API error, not necessarily "not a thread"
+			// For now, we'll treat any non-200 as not a thread for this specific check
+			return false;
+		}
+
+		const textResponse = await response.text();
+		if (textResponse === "该串不存在") {
+			return false;
+		}
+
+		// If it's not "该串不存在" and response was ok, assume it's a valid thread
+		return true;
+	}
+
 	async getThreadWithCookie(
 		id: number,
 		cookie: string,
