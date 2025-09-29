@@ -1,3 +1,5 @@
+import { FeedThread, Reply, Thread } from "../api/types.ts";
+
 export function extractTitleFromContent(content: string): string | null {
 	if (!content) return null;
 
@@ -29,26 +31,23 @@ export function extractTitleFromContent(content: string): string | null {
 	return extractedTitle;
 }
 
-export function formatThreadTitle(
-	title: string,
-	threadId: string,
-	content?: string,
-	name?: string,
+export function formatTitle(
+	thread: FeedThread | Thread | Reply,
 ): string {
-	if (!title || title === "无标题") {
-		if (name && name !== "无名氏") {
-			return name;
+	if (!thread.title || thread.title === "无标题") {
+		if (thread.name && thread.name !== "无名氏") {
+			return thread.name;
 		}
 
-		if (content) {
-			const extractedTitle = extractTitleFromContent(content);
+		if (thread.content) {
+			const extractedTitle = extractTitleFromContent(thread.content);
 			if (extractedTitle) {
 				return extractedTitle;
 			}
 		}
 
-		return `Thread ${threadId}`;
+		return `${thread.id}`;
 	}
 
-	return title;
+	return thread.title;
 }

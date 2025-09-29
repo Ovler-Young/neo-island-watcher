@@ -5,7 +5,7 @@ import { config } from "../config.ts";
 import { feedStates } from "../storage/feed-state.ts";
 import { groupBindings } from "../storage/group-bindings.ts";
 import { type ThreadStateData, threadStates } from "../storage/thread-state.ts";
-import { formatThreadTitle } from "../utils/title.ts";
+import { formatTitle } from "../utils/title.ts";
 import { formatReplyMessage, formatThreadMessage } from "./formatter.ts";
 
 let monitoringInterval: number | undefined;
@@ -112,12 +112,7 @@ async function handleNewThread(
 	for (const groupId of state.boundGroups) {
 		try {
 			// Create topic for the thread
-			const topicTitle = formatThreadTitle(
-				thread.title,
-				thread.id,
-				thread.content,
-				thread.name,
-			);
+			const topicTitle = formatTitle(thread);
 
 			// Create forum topic
 			const forumTopic = await bot.api.createForumTopic(groupId, topicTitle);
