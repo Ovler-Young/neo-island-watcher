@@ -1,82 +1,50 @@
 import { CommandGroup } from "@grammyjs/commands";
 import { xdnmbClient } from "../../api/xdnmb.ts";
-import { groupBindings } from "../../storage/group-bindings.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";
-import { extractThreadIdFromTopic } from "../../utils/telegram.ts";
+import {
+	ensureGroupBinding,
+	ensureGroupChat,
+	ensureThreadContext,
+	withErrorHandler,
+} from "../helpers/command-guards.ts";
 
 export function createFeedCommands() {
 	const commands = new CommandGroup();
 
-	commands.command("subscribe", "Subscribe to a thread", async (ctx) => {
-		try {
-			if (!ctx.chat || ctx.chat.type === "private") {
-				await ctx.reply("❌ This command only works in groups.");
-				return;
-			}
-
-			const threadId = await extractThreadIdFromTopic(ctx);
-			if (!threadId) {
-				await ctx.reply(
-					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
-				);
-				return;
-			}
-
-			const groupBinding = await groupBindings.getGroupBinding(
-				ctx.chat.id.toString(),
-			);
-			if (!groupBinding) {
-				await ctx.reply(
-					"❌ No feed bound to this group.\n" +
-						"Use /bindfeed first to bind a feed.",
-				);
-				return;
-			}
+	commands.command(
+		"subscribe",
+		"Subscribe to a thread",
+		withErrorHandler(async (ctx) => {
+			const chat = await ensureGroupChat(ctx);
+			if (!chat) return;
+			const threadId = await ensureThreadContext(ctx);
+			if (!threadId) return;
+			const groupBinding = await ensureGroupBinding(ctx);
+			if (!groupBinding) return;
 
 			const result = await xdnmbClient.addFeed(
 				groupBinding.boundFeeds,
 				threadId,
 			);
-			await groupCookies.updateLastUsed(ctx.chat.id.toString());
+			await groupCookies.updateLastUsed(chat.id.toString());
 
 			if (result === "订阅大成功→_→") {
 				await ctx.reply(`✅ Subscribed to thread ${threadId}!`);
 			} else {
 				await ctx.reply(`❌ Failed to subscribe: ${result}`);
 			}
-		} catch (error) {
-			console.error("Error in subscribe command:", error);
-			await ctx.reply("❌ Failed to subscribe. Please try again.");
-		}
-	});
+		}, "❌ Failed to subscribe. Please try again."),
+	);
 
-	commands.command("unsubscribe", "Unsubscribe from a thread", async (ctx) => {
-		try {
-			if (!ctx.chat || ctx.chat.type === "private") {
-				await ctx.reply("❌ This command only works in groups.");
-				return;
-			}
-
-			const threadId = await extractThreadIdFromTopic(ctx);
-			if (!threadId) {
-				await ctx.reply(
-					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
-				);
-				return;
-			}
-
-			const groupBinding = await groupBindings.getGroupBinding(
-				ctx.chat.id.toString(),
-			);
-			if (!groupBinding) {
-				await ctx.reply(
-					"❌ No feed bound to this group.\n" +
-						"Use /bindfeed first to bind a feed.",
-				);
-				return;
-			}
+	commands.command(
+		"unsubscribe",
+		"Unsubscribe from a thread",
+		withErrorHandler(async (ctx) => {
+			if (!(await ensureGroupChat(ctx))) return;
+			const threadId = await ensureThreadContext(ctx);
+			if (!threadId) return;
+			const groupBinding = await ensureGroupBinding(ctx);
+			if (!groupBinding) return;
 
 			const result = await xdnmbClient.delFeed(
 				groupBinding.boundFeeds,
@@ -88,11 +56,8 @@ export function createFeedCommands() {
 			} else {
 				await ctx.reply(`❌ Failed to unsubscribe: ${result}`);
 			}
-		} catch (error) {
-			console.error("Error in unsubscribe command:", error);
-			await ctx.reply("❌ Failed to unsubscribe. Please try again.");
-		}
-	});
+		}, "❌ Failed to unsubscribe. Please try again."),
+	);
 
 	return commands;
 }

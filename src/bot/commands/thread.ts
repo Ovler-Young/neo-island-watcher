@@ -1,17 +1,21 @@
 import { CommandGroup } from "@grammyjs/commands";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";
-import { extractThreadIdFromTopic } from "../../utils/telegram.ts";
+import {
+	ensureCookie,
+	ensureGroupChat,
+	ensureThreadContext,
+	withErrorHandler,
+} from "../helpers/command-guards.ts";
 
 export function createThreadCommands() {
 	const commands = new CommandGroup();
 
-	commands.command("reply", "Reply to a thread (use in topic)", async (ctx) => {
-		try {
-			if (!ctx.chat || ctx.chat.type === "private") {
-				await ctx.reply("❌ This command only works in groups.");
-				return;
-			}
+	commands.command(
+		"reply",
+		"Reply to a thread (use in topic)",
+		withErrorHandler(async (ctx) => {
+			if (!(await ensureGroupChat(ctx))) return;
 
 			const args = ctx.message?.text?.split(" ");
 			if (!args || args.length < 2) {
@@ -23,32 +27,18 @@ export function createThreadCommands() {
 			}
 
 			const message = args.slice(1).join(" ");
-			const groupId = ctx.chat.id.toString();
+			const cookieResult = await ensureCookie(ctx);
+			if (!cookieResult) return;
 
-			const cookieData = await groupCookies.getCookie(groupId);
-			if (!cookieData) {
-				await ctx.reply(
-					"❌ No authentication cookie set for this group.\n" +
-						"Use /setcookie first to set your XDNMB credentials.",
-				);
-				return;
-			}
+			const threadId = await ensureThreadContext(ctx);
+			if (!threadId) return;
 
-			const threadId = await extractThreadIdFromTopic(ctx);
-			if (!threadId) {
-				await ctx.reply(
-					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
-				);
-				return;
-			}
-
-			await groupCookies.updateLastUsed(groupId);
+			await groupCookies.updateLastUsed(cookieResult.groupId);
 
 			const result = await xdnmbClient.postReply(
 				threadId,
 				message,
-				cookieData.cookie,
+				cookieResult.cookieData.cookie,
 			);
 
 			if (result.includes("发串成功")) {
@@ -56,48 +46,31 @@ export function createThreadCommands() {
 			} else {
 				await ctx.reply("❌ Failed to post reply. Please try again.");
 			}
-		} catch (error) {
-			console.error("Error in reply command:", error);
-			await ctx.reply("❌ Failed to post reply. Please try again.");
-		}
-	});
+		}, "❌ Failed to post reply. Please try again."),
+	);
 
-	commands.command("r", "Roll dice in a thread", async (ctx) => {
-		try {
-			if (!ctx.chat || ctx.chat.type === "private") {
-				await ctx.reply("❌ This command only works in groups.");
-				return;
-			}
+	commands.command(
+		"r",
+		"Roll dice in a thread",
+		withErrorHandler(async (ctx) => {
+			if (!(await ensureGroupChat(ctx))) return;
 
 			const args = ctx.message?.text?.split(" ");
 			const num = args && args.length > 1 ? Number.parseInt(args[1], 10) : 10;
 			const diceRange = Number.isNaN(num) ? "[1,10]" : `[1,${num}]`;
 
-			const groupId = ctx.chat.id.toString();
-			const cookieData = await groupCookies.getCookie(groupId);
-			if (!cookieData) {
-				await ctx.reply(
-					"❌ No authentication cookie set for this group.\n" +
-						"Use /setcookie first to set your XDNMB credentials.",
-				);
-				return;
-			}
+			const cookieResult = await ensureCookie(ctx);
+			if (!cookieResult) return;
 
-			const threadId = await extractThreadIdFromTopic(ctx);
-			if (!threadId) {
-				await ctx.reply(
-					"❌ Unable to determine thread ID.\n" +
-						"This command should be used in a thread topic.",
-				);
-				return;
-			}
+			const threadId = await ensureThreadContext(ctx);
+			if (!threadId) return;
 
-			await groupCookies.updateLastUsed(groupId);
+			await groupCookies.updateLastUsed(cookieResult.groupId);
 
 			const result = await xdnmbClient.postReply(
 				threadId,
 				diceRange,
-				cookieData.cookie,
+				cookieResult.cookieData.cookie,
 			);
 
 			if (result.includes("发串成功")) {
@@ -105,11 +78,8 @@ export function createThreadCommands() {
 			} else {
 				await ctx.reply("❌ Failed to roll dice. Please try again.");
 			}
-		} catch (error) {
-			console.error("Error in roll command:", error);
-			await ctx.reply("❌ Failed to roll dice. Please try again.");
-		}
-	});
+		}, "❌ Failed to roll dice. Please try again."),
+	);
 
 	return commands;
 }
