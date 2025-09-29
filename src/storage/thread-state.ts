@@ -88,6 +88,20 @@ class ThreadStatesStorage extends BaseStorage<ThreadStateStorage> {
 			return data;
 		});
 	}
+
+	async setPoUserId(threadId: string, userId: string): Promise<void> {
+		await this.update((data) => {
+			if (!data[threadId]) {
+				throw new Error(`Thread ${threadId} not found`);
+			}
+
+			if (!data[threadId].writer.includes(userId)) {
+				data[threadId].writer.push(userId);
+			}
+
+			return data;
+		});
+	}
 }
 
 export const threadStates = new ThreadStatesStorage();

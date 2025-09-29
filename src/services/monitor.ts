@@ -227,7 +227,7 @@ async function handleNewReply(
 	threadId: string,
 	threadState: ThreadStateData,
 ): Promise<void> {
-	if (!threadState.writer.includes(reply.user_hash)) {
+	if (!threadState.writer.includes(reply.user_hash) && !threadState.writer.includes("*")) {
 		return;
 	}
 	try {
