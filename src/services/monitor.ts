@@ -202,7 +202,9 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 			return;
 		}
 
-		const threadData: ThreadData = await xdnmbClient.getThread(Number(threadId));
+		const threadData: ThreadData = await xdnmbClient.getThread(
+			Number(threadId),
+		);
 
 		const currentReplyCount = threadData.ReplyCount;
 
