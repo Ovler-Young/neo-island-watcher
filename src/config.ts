@@ -2,6 +2,7 @@ interface Config {
 	telegramBotToken: string;
 	xdnmbApiBase: string;
 	xdnmbFrontendBase: string;
+	xdnmbImageBase: string;
 	monitoringInterval: number;
 }
 
@@ -45,6 +46,7 @@ export const config: Config = {
 		"XDNMB_FRONTEND_BASE",
 		"https://www.nmbxd1.com",
 	),
+	xdnmbImageBase: getOptionalEnv("XDNMB_IMAGE_BASE", "https://image.nmb.best"),
 	monitoringInterval: parseInterval(
 		getOptionalEnv("MONITORING_INTERVAL", "5m"),
 	),

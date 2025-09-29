@@ -2,11 +2,18 @@ import type { FeedThread, Reply } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
 
+//* 实际的图片地址由 CDN 地址和 `img`、`ext` 两个字段组合而成。例如：图片 CDN 地址为 `https://image.nmb.best/`，`img` 为 `2022-06-18/62acedc59ef24`，`ext` 为 `.png`，则图片地址为 `https://image.nmb.best/image/2022-06-18/62acedc59ef24.png`，缩略图地址为 `https://image.nmb.best/thumb/2022-06-18/62acedc59ef24.png`。
+
 export async function formatThreadMessage(thread: FeedThread): Promise<string> {
 	const threadUrl = xdnmbClient.buildThreadUrl(thread.id.toString());
 	const formattedContent = await processContent(thread.content);
+	let header = "";
+	if (thread.img && thread.ext) {
+		const imageUrl = `${config.xdnmbImageBase}/image/${thread.img}${thread.ext}`;
+		header += `<a href="${imageUrl}">${thread.img}</a>\n`;
+	}
 
-	let header = `<a href="${threadUrl}">${thread.id}</a> | #${thread.user_hash}`;
+	header += `<a href="${threadUrl}">${thread.id}</a> | #${thread.user_hash}`;
 	if (thread.title && thread.title !== "无标题") {
 		header += ` | ${thread.title}`;
 	}
@@ -25,8 +32,13 @@ export async function formatReplyMessage(
 ): Promise<string> {
 	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
 	const formattedContent = await processContent(reply.content);
+	let header = "";
+	if (reply.img && reply.ext) {
+		const imageUrl = `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`;
+		header += `<a href="${imageUrl}">${reply.img}</a>\n`;
+	}
 
-	let header = `<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash}`;
+	header += `<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash}`;
 	if (reply.title && reply.title !== "无标题") {
 		header += ` | ${reply.title}`;
 	}
