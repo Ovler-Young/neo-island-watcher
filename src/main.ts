@@ -5,7 +5,7 @@ async function main() {
 	console.log("🏝️ Neo Island Watcher starting...");
 
 	console.log("📱 Starting Telegram bot...");
-	await bot.start();
+	bot.start();
 
 	console.log("🔍 Starting monitoring service...");
 	await startMonitoring();
