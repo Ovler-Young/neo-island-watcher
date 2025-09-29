@@ -1,20 +1,20 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(deno:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(mkdir:*)",
-      "Bash(find:*)",
-      "Bash(tree:*)",
-      "Bash(grep:*)",
-      "Bash(cat:*)",
-      "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs",
-      "mcp__deepwiki__read_wiki_structure",
-      "Bash(deno check:*)"
-    ],
-    "deny": [],
-    "ask": []
-  }
+	"permissions": {
+		"allow": [
+			"Bash(deno:*)",
+			"Bash(git add:*)",
+			"Bash(git commit:*)",
+			"Bash(mkdir:*)",
+			"Bash(find:*)",
+			"Bash(tree:*)",
+			"Bash(grep:*)",
+			"Bash(cat:*)",
+			"mcp__context7__resolve-library-id",
+			"mcp__context7__get-library-docs",
+			"mcp__deepwiki__read_wiki_structure",
+			"Bash(deno check:*)"
+		],
+		"deny": [],
+		"ask": []
+	}
 }
