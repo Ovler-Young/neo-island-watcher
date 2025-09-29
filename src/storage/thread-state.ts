@@ -29,6 +29,20 @@ class ThreadStatesStorage extends BaseStorage<ThreadStateStorage> {
 		return data[threadId] || null;
 	}
 
+	async getAllThreads(): Promise<ThreadStateStorage> {
+		return await this.read();
+	}
+
+	async createThreadState(
+		threadId: string,
+		threadData: ThreadStateData,
+	): Promise<void> {
+		await this.update((data) => ({
+			...data,
+			[threadId]: threadData,
+		}));
+	}
+
 	async updateThreadState(
 		threadId: string,
 		updates: Partial<ThreadStateData>,
