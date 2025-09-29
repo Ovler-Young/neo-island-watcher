@@ -202,30 +202,33 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 			return;
 		}
 
-		const threadData: ThreadData = await xdnmbClient.getThread(
+		const threadData: ThreadData = await xdnmbClient.getUpdatedThread(
 			Number(threadId),
+			threadState.lastReplyCount,
+			threadState.lastReplyId,
 		);
 
 		const currentReplyCount = threadData.ReplyCount;
 
-		if (currentReplyCount > threadState.lastReplyCount) {
-			console.log(
-				`📬 Thread ${threadId} has new replies: ${threadState.lastReplyCount} -> ${currentReplyCount}`,
-			);
 
-			// Get new replies and send them to bound topics
-			const newReplies = threadData.Replies.slice(threadState.lastReplyCount);
-
-			for (const reply of newReplies) {
-				await handleNewReply(reply, threadId, threadState);
-			}
-
-			// Update thread state
-			await threadStates.updateThreadState(threadId, {
-				lastReplyCount: currentReplyCount,
-				lastReplyId: threadData.Replies[threadData.Replies.length - 1]?.id || 0,
-			});
+		if (threadData.Replies.length === 0) {
+			return;
 		}
+
+		console.log(
+			`📬 Thread ${threadId} has  ${threadData.Replies.length} new replies: ${threadState.lastReplyCount} -> ${currentReplyCount}`,
+		);
+
+		const newReplies = threadData.Replies;
+
+		for (const reply of newReplies) {
+			await handleNewReply(reply, threadId, threadState);
+		}
+
+		await threadStates.updateThreadState(threadId, {
+			lastReplyCount: currentReplyCount,
+			lastReplyId: threadData.Replies[threadData.Replies.length - 1]?.id || 0,
+		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
 	}
