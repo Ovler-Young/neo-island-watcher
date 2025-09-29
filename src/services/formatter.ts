@@ -100,7 +100,7 @@ async function processContent(content: string): Promise<string> {
 	processed = processed.replace(/&amp;/g, "&");
 	processed = processed.replace(/&quot;/g, '"');
 	processed = processed.replace(/&#39;/g, "'");
-	processed = processed.trim();
+	processed = processed.replace(/\n{3,}/g, "\n\n");
 
 	return processed;
 }
