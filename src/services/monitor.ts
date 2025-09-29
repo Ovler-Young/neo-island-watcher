@@ -205,18 +205,15 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
-		const initialPageData = await xdnmbClient.getThread(
-			Number(threadId),
-			startPage,
-		);
-		const newTotalReplyCount = initialPageData.ReplyCount;
+		let pageData = await xdnmbClient.getThread(Number(threadId), startPage);
+		const newTotalReplyCount = pageData.ReplyCount;
 
 		if (newTotalReplyCount <= lastCount) {
-			initialPageData.Replies = [];
+			pageData.Replies = [];
 			return;
 		}
 		console.log(
-			`📬 Thread ${threadId} has  ${initialPageData.Replies.length} new replies: ${threadState.lastReplyCount} -> ${newTotalReplyCount}`,
+			`📬 Thread ${threadId} has  ${pageData.Replies.length} new replies: ${threadState.lastReplyCount} -> ${newTotalReplyCount}`,
 		);
 		const newMaxPage = Math.ceil(newTotalReplyCount / 19);
 
@@ -226,11 +223,8 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 			pagesToFetch.push(i);
 		}
 		for (const page of pagesToFetch) {
-			let pageData;
 			if (page !== startPage) {
 				pageData = await xdnmbClient.getThread(Number(threadId), page);
-			} else {
-				pageData = initialPageData;
 			}
 			newReplies = pageData.Replies.filter(
 				(reply) => reply.id > threadState.lastReplyId,
