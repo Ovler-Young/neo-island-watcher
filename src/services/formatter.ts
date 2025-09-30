@@ -75,12 +75,20 @@ function escapeHtmlExceptTags(text: string): string {
 async function processContent(content: string): Promise<string> {
 	let processed = content;
 
-	const regex = /&gt;&gt;No\.(\d+)/g;
-	let matchResult: RegExpExecArray | null; // Explicitly type matchResult
+	// First, decode HTML entities to work with plain text
+	processed = processed.replace(/&nbsp;/g, " ");
+	processed = processed.replace(/&lt;/g, "<");
+	processed = processed.replace(/&gt;/g, ">");
+	processed = processed.replace(/&amp;/g, "&");
+	processed = processed.replace(/&quot;/g, '"');
+	processed = processed.replace(/&#39;/g, "'");
+
+	// Now process >>No. references (after HTML entities are decoded)
+	const regex = />>No\.(\d+)/g;
+	let matchResult: RegExpExecArray | null;
 	let lastIndex = 0;
 	const parts: (string | Promise<string>)[] = [];
 
-	// Refactor while loop to avoid assignment in expression
 	while (true) {
 		matchResult = regex.exec(processed);
 		if (matchResult === null) {
@@ -88,11 +96,11 @@ async function processContent(content: string): Promise<string> {
 		}
 		parts.push(processed.substring(lastIndex, matchResult.index));
 		const postId = matchResult[1];
-		const isThread = await xdnmbClient.isThread(parseInt(postId, 10)); // Add radix
+		const isThread = await xdnmbClient.isThread(parseInt(postId, 10));
 		const url = isThread
 			? xdnmbClient.buildThreadUrl(postId)
 			: xdnmbClient.buildRefUrl(postId);
-		parts.push(`<a href="${url}">&gt;&gt;No.${postId}</a>`);
+		parts.push(`<a href="${url}">>No.${postId}</a>`);
 		lastIndex = regex.lastIndex;
 	}
 	parts.push(processed.substring(lastIndex));
@@ -100,8 +108,8 @@ async function processContent(content: string): Promise<string> {
 	processed = (await Promise.all(parts)).join("");
 
 	processed = processed.replace(
-		/<font color="#789922">&gt;([^<]+)<\/font>/g,
-		'<font color="#789922">&gt;$1</font>',
+		/<font color="#789922">>([^<]+)<\/font>/g,
+		'<font color="#789922">>$1</font>',
 	);
 
 	processed = processed.replace(
@@ -116,12 +124,6 @@ async function processContent(content: string): Promise<string> {
 
 	processed = processed.replace(/<br \/>/g, "\n");
 	processed = processed.replace(/<[^>]+>/g, "");
-	processed = processed.replace(/&nbsp;/g, " ");
-	processed = processed.replace(/&lt;/g, "<");
-	processed = processed.replace(/&gt;/g, ">");
-	processed = processed.replace(/&amp;/g, "&");
-	processed = processed.replace(/&quot;/g, '"');
-	processed = processed.replace(/&#39;/g, "'");
 	processed = processed.replace(/\n{3,}/g, "\n\n");
 
 	// Escape special characters that aren't part of allowed HTML tags
