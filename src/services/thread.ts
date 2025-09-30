@@ -1,6 +1,7 @@
 import type { FeedThread, Reply } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { bot } from "../bot/bot.ts";
+import { config } from "../config.ts";
 import { feedStates } from "../storage/feed-state.ts";
 import { groupBindings } from "../storage/group-bindings.ts";
 import { type ThreadStateData, threadStates } from "../storage/thread-state.ts";
@@ -173,79 +174,72 @@ function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
 	return true;
 }
 
-
 async function sendBatchedReplies(
 	threadId: string,
 	threadState: ThreadStateData,
 	replies: Reply[],
 	page: number,
 ): Promise<void> {
-	const imageReplies: Reply[] = replies.filter(reply => reply.img && reply.ext);
-	const textReplies: Reply[] = replies.filter(reply => !reply.img || !reply.ext);
+	const MAX_LENGTH = 4000;
+	const SEPARATOR = "\n---\n";
 
 	for (const binding of threadState.bindings) {
-		try {
-			// Send image replies individually for preview support
-			for (const reply of imageReplies) {
-				const message = await formatReplyMessage(reply, threadId, page);
-				await bot.api.sendMessage(binding.groupId, message, {
-					message_thread_id: binding.topicId,
-					parse_mode: "HTML",
-					link_preview_options: { is_disabled: false },
-				});
-			}
+		let currentBatch: string[] = [];
+		let currentLength = 0;
 
-			// Batch text-only replies
-			if (textReplies.length > 0) {
-				const batches = await createTextBatches(textReplies, threadId, page);
-				for (const batch of batches) {
-					await bot.api.sendMessage(binding.groupId, batch, {
+		for (const reply of replies) {
+			const message = await formatReplyMessage(reply, threadId, page);
+			const isImage = reply.img && reply.ext;
+
+			const messageLength = message.length;
+			const batchLength =
+				currentLength +
+				messageLength +
+				(currentBatch.length > 0 ? SEPARATOR.length : 0);
+
+			if (batchLength > MAX_LENGTH) {
+				await bot.api.sendMessage(
+					binding.groupId,
+					currentBatch.join(SEPARATOR),
+					{
 						message_thread_id: binding.topicId,
 						parse_mode: "HTML",
 						link_preview_options: { is_disabled: true },
-					});
-				}
+					},
+				);
+				currentBatch = [message];
+				currentLength = messageLength;
+				continue;
+			} else if (isImage) {
+				currentBatch.push(message);
+				await bot.api.sendMessage(
+					binding.groupId,
+					currentBatch.join(SEPARATOR),
+					{
+						message_thread_id: binding.topicId,
+						parse_mode: "HTML",
+						link_preview_options: {
+							is_disabled: false,
+							url: `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`,
+							prefer_large_media: true,
+							show_above_text: true,
+						},
+					},
+				);
+				currentBatch = [];
+				currentLength = 0;
+				continue;
 			}
-		} catch (error) {
-			console.error(`Error sending batched replies:`, error);
-		}
-	}
-}
-
-
-async function createTextBatches(
-	replies: Reply[],
-	threadId: string,
-	page: number,
-): Promise<string[]> {
-	const batches: string[] = [];
-	let currentBatch: string[] = [];
-	let currentLength = 0;
-	const MAX_LENGTH = 4000;
-	const SEPARATOR = "\n───────────────────\n";
-
-	for (const reply of replies) {
-		const message = await formatReplyMessage(reply, threadId, page);
-		const messageLength = message.length;
-
-		const batchLength =
-			currentLength +
-			messageLength +
-			(currentBatch.length > 0 ? SEPARATOR.length : 0);
-
-		if (currentBatch.length > 0 && batchLength > MAX_LENGTH) {
-			batches.push(currentBatch.join(SEPARATOR));
-			currentBatch = [message];
-			currentLength = messageLength;
-		} else {
 			currentBatch.push(message);
 			currentLength = batchLength;
 		}
-	}
 
-	if (currentBatch.length > 0) {
-		batches.push(currentBatch.join(SEPARATOR));
+		if (currentBatch.length > 0) {
+			await bot.api.sendMessage(binding.groupId, currentBatch.join(SEPARATOR), {
+				message_thread_id: binding.topicId,
+				parse_mode: "HTML",
+				link_preview_options: { is_disabled: true },
+			});
+		}
 	}
-
-	return batches;
 }
