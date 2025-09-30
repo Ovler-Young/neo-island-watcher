@@ -5,9 +5,9 @@ import { config } from "../config.ts";
 import { feedStates } from "../storage/feed-state.ts";
 import { groupBindings } from "../storage/group-bindings.ts";
 import { type ThreadStateData, threadStates } from "../storage/thread-state.ts";
+import { isSpamContent } from "../utils/filter.ts";
 import { formatTitle } from "../utils/title.ts";
 import { formatReplyMessage, formatThreadMessage } from "./formatter.ts";
-import { isSpamContent } from "../utils/filter.ts";
 
 let monitoringInterval: number | undefined;
 
