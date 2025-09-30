@@ -20,4 +20,8 @@ export async function setupCommands(bot: Bot) {
 
 	// Sync command menu to Telegram
 	await basicCommands.setCommands(bot);
+	await adminCommands.setCommands(bot);
+	await threadCommands.setCommands(bot);
+	await poCommands.setCommands(bot);
+	await feedCommands.setCommands(bot);
 }
