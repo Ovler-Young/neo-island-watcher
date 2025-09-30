@@ -147,3 +147,68 @@ export function extractThumbnailUrl(img: string, ext: string): string | null {
 
 	return `${config.xdnmbFrontendBase}/thumb/${img}${ext}`;
 }
+
+/**
+ * Splits a long HTML message into chunks that fit within Telegram's message length limit.
+ * Preserves HTML formatting by avoiding splits within tags and entities.
+ *
+ * @param text - The HTML text to split
+ * @param maxLength - Maximum length per chunk (default: 4000 to leave room for safety)
+ * @returns Array of message chunks
+ */
+export function splitLongMessage(text: string, maxLength = 4000): string[] {
+	if (text.length <= maxLength) {
+		return [text];
+	}
+
+	const chunks: string[] = [];
+	let currentPos = 0;
+
+	while (currentPos < text.length) {
+		const chunkEnd = currentPos + maxLength;
+
+		// If this would be the last chunk, take everything
+		if (chunkEnd >= text.length) {
+			chunks.push(text.slice(currentPos));
+			break;
+		}
+
+		// Find a safe break point (newline or space) before maxLength
+		let breakPoint = text.lastIndexOf("\n", chunkEnd);
+		if (breakPoint <= currentPos) {
+			breakPoint = text.lastIndexOf(" ", chunkEnd);
+		}
+		if (breakPoint <= currentPos) {
+			breakPoint = chunkEnd;
+		}
+
+		// Check if we're inside an HTML tag or entity
+		const chunk = text.slice(currentPos, breakPoint);
+		const openTags = chunk.match(/<[^>]*$/);
+		const openEntity = chunk.match(/&[^;]*$/);
+
+		if (openTags) {
+			// We're inside a tag, back up to before it
+			const tagStart = chunk.lastIndexOf("<");
+			if (tagStart > 0) {
+				breakPoint = currentPos + tagStart;
+			}
+		} else if (openEntity) {
+			// We're inside an entity, back up to before it
+			const entityStart = chunk.lastIndexOf("&");
+			if (entityStart > 0) {
+				breakPoint = currentPos + entityStart;
+			}
+		}
+
+		chunks.push(text.slice(currentPos, breakPoint));
+		currentPos = breakPoint;
+
+		// Skip leading whitespace in the next chunk
+		while (currentPos < text.length && text[currentPos] === " ") {
+			currentPos++;
+		}
+	}
+
+	return chunks;
+}
