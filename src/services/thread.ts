@@ -222,7 +222,6 @@ async function sendBatchedReplies(
 							is_disabled: false,
 							url: `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`,
 							prefer_large_media: true,
-							show_above_text: true,
 						},
 					},
 				);
