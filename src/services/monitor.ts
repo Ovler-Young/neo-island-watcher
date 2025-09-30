@@ -7,6 +7,7 @@ import { groupBindings } from "../storage/group-bindings.ts";
 import { type ThreadStateData, threadStates } from "../storage/thread-state.ts";
 import { formatTitle } from "../utils/title.ts";
 import { formatReplyMessage, formatThreadMessage } from "./formatter.ts";
+import { isSpamContent } from "../utils/filter.ts";
 
 let monitoringInterval: number | undefined;
 
@@ -257,6 +258,9 @@ async function handleNewReply(
 		!threadState.writer.includes(reply.user_hash) &&
 		!threadState.writer.includes("*")
 	) {
+		return;
+	}
+	if (isSpamContent(reply.content) && !threadState.writer.includes(reply.user_hash)) {
 		return;
 	}
 	try {
