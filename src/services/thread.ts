@@ -173,23 +173,45 @@ function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
 	return true;
 }
 
-function separateRepliesByImage(replies: Reply[]): {
-	imageReplies: Reply[];
-	textReplies: Reply[];
-} {
-	const imageReplies: Reply[] = [];
-	const textReplies: Reply[] = [];
 
-	for (const reply of replies) {
-		if (reply.img && reply.ext) {
-			imageReplies.push(reply);
-		} else {
-			textReplies.push(reply);
+async function sendBatchedReplies(
+	threadId: string,
+	threadState: ThreadStateData,
+	replies: Reply[],
+	page: number,
+): Promise<void> {
+	const imageReplies: Reply[] = replies.filter(reply => reply.img && reply.ext);
+	const textReplies: Reply[] = replies.filter(reply => !reply.img || !reply.ext);
+
+	for (const binding of threadState.bindings) {
+		try {
+			// Send image replies individually for preview support
+			for (const reply of imageReplies) {
+				const message = await formatReplyMessage(reply, threadId, page);
+				await bot.api.sendMessage(binding.groupId, message, {
+					message_thread_id: binding.topicId,
+					parse_mode: "HTML",
+					link_preview_options: { is_disabled: false },
+				});
+			}
+
+			// Batch text-only replies
+			if (textReplies.length > 0) {
+				const batches = await createTextBatches(textReplies, threadId, page);
+				for (const batch of batches) {
+					await bot.api.sendMessage(binding.groupId, batch, {
+						message_thread_id: binding.topicId,
+						parse_mode: "HTML",
+						link_preview_options: { is_disabled: true },
+					});
+				}
+			}
+		} catch (error) {
+			console.error(`Error sending batched replies:`, error);
 		}
 	}
-
-	return { imageReplies, textReplies };
 }
+
 
 async function createTextBatches(
 	replies: Reply[],
@@ -226,41 +248,4 @@ async function createTextBatches(
 	}
 
 	return batches;
-}
-
-async function sendBatchedReplies(
-	threadId: string,
-	threadState: ThreadStateData,
-	replies: Reply[],
-	page: number,
-): Promise<void> {
-	const { imageReplies, textReplies } = separateRepliesByImage(replies);
-
-	for (const binding of threadState.bindings) {
-		try {
-			// Send image replies individually for preview support
-			for (const reply of imageReplies) {
-				const message = await formatReplyMessage(reply, threadId, page);
-				await bot.api.sendMessage(binding.groupId, message, {
-					message_thread_id: binding.topicId,
-					parse_mode: "HTML",
-					link_preview_options: { is_disabled: false },
-				});
-			}
-
-			// Batch text-only replies
-			if (textReplies.length > 0) {
-				const batches = await createTextBatches(textReplies, threadId, page);
-				for (const batch of batches) {
-					await bot.api.sendMessage(binding.groupId, batch, {
-						message_thread_id: binding.topicId,
-						parse_mode: "HTML",
-						link_preview_options: { is_disabled: true },
-					});
-				}
-			}
-		} catch (error) {
-			console.error(`Error sending batched replies:`, error);
-		}
-	}
 }
