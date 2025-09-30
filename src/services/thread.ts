@@ -175,6 +175,10 @@ function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
 		return false;
 	}
 
+	if (reply.id === 99999999) {
+		return true;
+	}
+
 	return true;
 }
 
