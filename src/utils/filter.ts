@@ -29,26 +29,26 @@ export function isSpamContent(content: string): boolean {
 		"魂兮归来",
 		"求你了再写",
 	];
-    // Check for emoticons
-    for (const emot of emotList) {
-        if (content.includes(emot)) {
-            return true;
-        }
-    }
-    // Check for rich emoticons
-    for (const key in richEmotList) {
-        if (content.includes(key) || content.includes(richEmotList[key])) {
-            return true;
-        }
-    }
-    // Check for spam patterns and short content
-    for (const pattern of spamPatterns) {
-        if (content.includes(pattern)) {
-            return true;
-        }
-    }
-    if (content.length < 2) {
-        return true;
-    }
-    return false;
+	// Check for emoticons
+	for (const emot of emotList) {
+		if (content.includes(emot)) {
+			return true;
+		}
+	}
+	// Check for rich emoticons
+	for (const key in richEmotList) {
+		if (content.includes(key) || content.includes(richEmotList[key])) {
+			return true;
+		}
+	}
+	// Check for spam patterns and short content
+	for (const pattern of spamPatterns) {
+		if (content.includes(pattern)) {
+			return true;
+		}
+	}
+	if (content.length < 2) {
+		return true;
+	}
+	return false;
 }
