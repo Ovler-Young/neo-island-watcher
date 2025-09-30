@@ -248,21 +248,33 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 	}
 }
 
+function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
+	const isInWriterList = threadState.writer.includes(reply.user_hash);
+	const isWildcardWriter = threadState.writer.includes("*");
+
+	// If not authorized by writer list, skip
+	if (!isInWriterList && !isWildcardWriter) {
+		return false;
+	}
+
+	// If spam content from non-writer, skip
+	if (isSpamContent(reply.content) && !isInWriterList) {
+		return false;
+	}
+
+	return true;
+}
+
 async function handleNewReply(
 	reply: Reply,
 	threadId: string,
 	threadState: ThreadStateData,
 	page = 1,
 ): Promise<void> {
-	if (
-		!threadState.writer.includes(reply.user_hash) &&
-		!threadState.writer.includes("*")
-	) {
+	if (!shouldSendReply(reply, threadState)) {
 		return;
 	}
-	if (isSpamContent(reply.content) && !threadState.writer.includes(reply.user_hash)) {
-		return;
-	}
+
 	try {
 		for (const binding of threadState.bindings) {
 			const replyMessage = await formatReplyMessage(reply, threadId, page);
