@@ -313,6 +313,43 @@ function separateRepliesByImage(replies: Reply[]): {
 	return { imageReplies, textReplies };
 }
 
+async function createTextBatches(
+	replies: Reply[],
+	threadId: string,
+	page: number,
+): Promise<string[]> {
+	const batches: string[] = [];
+	let currentBatch: string[] = [];
+	let currentLength = 0;
+	const MAX_LENGTH = 4000;
+	const SEPARATOR = "\n───────────────────\n";
+
+	for (const reply of replies) {
+		const message = await formatReplyMessage(reply, threadId, page);
+		const messageLength = message.length;
+
+		const batchLength =
+			currentLength +
+			messageLength +
+			(currentBatch.length > 0 ? SEPARATOR.length : 0);
+
+		if (currentBatch.length > 0 && batchLength > MAX_LENGTH) {
+			batches.push(currentBatch.join(SEPARATOR));
+			currentBatch = [message];
+			currentLength = messageLength;
+		} else {
+			currentBatch.push(message);
+			currentLength = batchLength;
+		}
+	}
+
+	if (currentBatch.length > 0) {
+		batches.push(currentBatch.join(SEPARATOR));
+	}
+
+	return batches;
+}
+
 async function sendBatchedReplies(
 	threadId: string,
 	threadState: ThreadStateData,
@@ -333,14 +370,16 @@ async function sendBatchedReplies(
 				});
 			}
 
-			// Send text-only replies individually (batching to be added next)
-			for (const reply of textReplies) {
-				const message = await formatReplyMessage(reply, threadId, page);
-				await bot.api.sendMessage(binding.groupId, message, {
-					message_thread_id: binding.topicId,
-					parse_mode: "HTML",
-					link_preview_options: { is_disabled: true },
-				});
+			// Batch text-only replies
+			if (textReplies.length > 0) {
+				const batches = await createTextBatches(textReplies, threadId, page);
+				for (const batch of batches) {
+					await bot.api.sendMessage(binding.groupId, batch, {
+						message_thread_id: binding.topicId,
+						parse_mode: "HTML",
+						link_preview_options: { is_disabled: true },
+					});
+				}
 			}
 		} catch (error) {
 			console.error(`Error sending batched replies:`, error);
