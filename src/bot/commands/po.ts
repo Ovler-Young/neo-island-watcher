@@ -30,13 +30,24 @@ export function createPoCommands() {
 			const [, userId] = args;
 			await threadStates.setPoUserId(threadId, userId);
 
-			await ctx.reply(
+			const threadState = await threadStates.getThreadState(threadId);
+			const currentPage = threadState
+				? Math.floor((threadState.lastReplyCount - 1) / 19) + 1
+				: 0;
+
+			let message =
 				"✅ PO user ID set successfully!\n" +
-					"Thread ID: " +
-					threadId +
-					"\nUser ID: " +
-					userId,
-			);
+				"Thread ID: " +
+				threadId +
+				"\nUser ID: " +
+				userId;
+
+			if (currentPage > 0) {
+				message +=
+					"\n\n💡 Tip: Author changed and current page > 0. Consider using /resetpage to reset page.";
+			}
+
+			await ctx.reply(message);
 		}, "❌ Failed to set PO user ID. Please try again."),
 	);
 
@@ -51,7 +62,20 @@ export function createPoCommands() {
 			if (!groupBinding) return;
 
 			await threadStates.setPoUserId(threadId, "*");
-			await ctx.reply("✅ All users will be notified for this thread.");
+
+			const threadState = await threadStates.getThreadState(threadId);
+			const currentPage = threadState
+				? Math.floor((threadState.lastReplyCount - 1) / 19) + 1
+				: 0;
+
+			let message = "✅ All users will be notified for this thread.";
+
+			if (currentPage > 0) {
+				message +=
+					"\n\n💡 Tip: Author changed and current page > 0. Consider using /resetpage to reset page.";
+			}
+
+			await ctx.reply(message);
 		}, "❌ Failed to set all users notification. Please try again."),
 	);
 

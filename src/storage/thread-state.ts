@@ -102,6 +102,24 @@ class ThreadStatesStorage extends BaseStorage<ThreadStateStorage> {
 			return data;
 		});
 	}
+
+	async resetPage(
+		threadId: string,
+		page: number,
+		lastReplyId: number = 0,
+	): Promise<void> {
+		await this.update((data) => {
+			if (!data[threadId]) {
+				throw new Error(`Thread ${threadId} not found`);
+			}
+
+			data[threadId].lastReplyCount = 19 * (page - 1) + 1;
+			data[threadId].lastReplyId = lastReplyId;
+			data[threadId].lastCheck = new Date().toISOString();
+
+			return data;
+		});
+	}
 }
 
 export const threadStates = new ThreadStatesStorage();
