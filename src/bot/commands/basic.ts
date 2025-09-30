@@ -1,4 +1,4 @@
-import { CommandGroup } from "@grammyjs/commands";
+import { CommandGroup } from "grammy/commands";
 
 export function createBasicCommands() {
 	const commands = new CommandGroup();

@@ -1,4 +1,4 @@
-import { CommandGroup } from "@grammyjs/commands";
+import { CommandGroup } from "grammy/commands";
 import { feedStates } from "../../storage/feed-state.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";

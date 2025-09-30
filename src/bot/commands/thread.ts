@@ -1,4 +1,4 @@
-import { CommandGroup } from "@grammyjs/commands";
+import { CommandGroup } from "grammy/commands";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { groupCookies } from "../../storage/group-cookies.ts";
 import {

@@ -1,4 +1,4 @@
-import type { Message } from "npm:@grammyjs/types";
+import type { Message } from "grammy/types";
 import { groupBindings } from "../storage/group-bindings.ts";
 export async function extractThreadIdFromTopic(ctx: {
 	message?: Message;

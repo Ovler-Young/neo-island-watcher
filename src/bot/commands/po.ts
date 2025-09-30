@@ -1,4 +1,4 @@
-import { CommandGroup } from "@grammyjs/commands";
+import { CommandGroup } from "grammy/commands";
 import { threadStates } from "../../storage/thread-state.ts";
 import {
 	ensureGroupBinding,
