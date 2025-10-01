@@ -112,11 +112,9 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 		const lastCount = threadState.lastReplyCount || 0;
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
-		const firstPageData = await xdnmbClient.getThread(
-			Number(threadId),
-			startPage,
-		);
-		const newTotalReplyCount = firstPageData.ReplyCount;
+		let pageData = await xdnmbClient.getThread(Number(threadId), startPage);
+		const newTotalReplyCount = pageData.ReplyCount;
+		let lastReply = pageData.Replies[pageData.Replies.length - 1];
 
 		if (newTotalReplyCount <= lastCount) {
 			return;
@@ -129,9 +127,9 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 		const maxPage = Math.ceil(newTotalReplyCount / 19);
 
 		for (let page = startPage; page <= maxPage; page++) {
-			const pageData =
+			pageData =
 				page === startPage
-					? firstPageData
+					? pageData
 					: await xdnmbClient.getThread(Number(threadId), page);
 
 			const newReplies = pageData.Replies.filter(
@@ -150,12 +148,17 @@ async function checkThreadForReplies(threadId: string): Promise<void> {
 				await sendBatchedReplies(threadId, threadState, filteredReplies, page);
 			}
 
-			const lastReply = newReplies[newReplies.length - 1];
+			lastReply = newReplies[newReplies.length - 1];
 			await threadStates.updateThreadState(threadId, {
 				lastReplyCount: 19 * (page - 1) + newReplies.length,
 				lastReplyId: lastReply.id,
 			});
 		}
+		await threadStates.updateThreadState(threadId, {
+			lastCheck: new Date().toISOString(),
+			lastReplyCount: pageData.ReplyCount,
+			lastReplyId: lastReply.id,
+		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
 	}
