@@ -19,9 +19,20 @@ export async function setupCommands(bot: Bot) {
 	bot.use(feedCommands);
 
 	// Sync command menu to Telegram
-	await basicCommands.setCommands(bot);
-	await adminCommands.setCommands(bot);
-	await threadCommands.setCommands(bot);
-	await poCommands.setCommands(bot);
-	await feedCommands.setCommands(bot);
+	const allCommandGroups = [
+		basicCommands,
+		adminCommands,
+		threadCommands,
+		poCommands,
+		feedCommands,
+	];
+
+	const allCommands = allCommandGroups.flatMap((group) =>
+		group.commands.map((cmd) => ({
+			command: typeof cmd.name === "string" ? cmd.name : cmd.name.source,
+			description: cmd.description,
+		})),
+	);
+
+	await bot.api.setMyCommands(allCommands);
 }
