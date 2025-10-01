@@ -81,7 +81,7 @@ export class XDNMBClient {
 		return this.requestWithCookie<ThreadData>(`thread?id=${id}&page=${page}`);
 	}
 
-	async getFullThread(id: number): Promise<ThreadData> {
+	getFullThread(id: number): Promise<ThreadData> {
 		return this.getUpdatedThread(id);
 	}
 
