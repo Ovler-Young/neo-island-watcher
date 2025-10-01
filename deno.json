@@ -5,7 +5,7 @@
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
 		"check": "biome check .  --write",
-		"check:all": "deno task format && deno task lint && deno task check && deno check --all --allow-import"
+		"check:all": "deno task format && deno task lint && deno task check && deno lint && deno check --all --allow-import"
 	},
 	"imports": {
 		"@biomejs/biome": "npm:@biomejs/biome@^2.2.4",
