@@ -1,21 +1,19 @@
 import { threadStates } from "../../storage/thread-state.ts";
 import type { CommandDefinition } from "../types.ts";
 
-export const po: CommandDefinition = {
-	name: "po",
-	description: "Set PO user ID for thread notifications",
-	params: [{ name: "userId", type: "string", required: true }],
+export const all: CommandDefinition = {
+	name: "all",
+	description: "Notify all users for this thread",
 	guards: ["groupOnly", "threadContext", "groupBinding"],
-	handler: async ({ threadId, params }) => {
-		const userId = params.userId as string;
-		await threadStates.setPoUserId(threadId, userId);
+	handler: async ({ threadId }) => {
+		await threadStates.setPoUserId(threadId, "*");
 
 		const threadState = await threadStates.getThreadState(threadId);
 		const currentPage = threadState
 			? Math.floor((threadState.lastReplyCount - 1) / 19) + 1
 			: 0;
 
-		let message = `✅ PO user ID set successfully!\nThread ID: ${threadId}\nUser ID: ${userId}`;
+		let message = "✅ All users will be notified for this thread.";
 
 		if (currentPage > 0) {
 			message +=
