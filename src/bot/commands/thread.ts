@@ -42,7 +42,7 @@ export function createThreadCommands() {
 				cookieResult.cookieData.cookie,
 			);
 
-			if (result.includes("发串成功")) {
+			if (result.includes("回复成功")) {
 				await ctx.reply("✅ Reply posted successfully!");
 			} else {
 				await ctx.reply("❌ Failed to post reply. Please try again.");
@@ -74,10 +74,10 @@ export function createThreadCommands() {
 				cookieResult.cookieData.cookie,
 			);
 
-			if (result.includes("发串成功")) {
+			if (result.includes("回复成功")) {
 				await ctx.reply(`🎲 Dice rolled: ${diceRange}`);
 			} else {
-				await ctx.reply("❌ Failed to roll dice. Please try again." + result);
+				await ctx.reply("❌ Failed to roll dice. Please try again.");
 			}
 		}, "❌ Failed to roll dice. Please try again."),
 	);
