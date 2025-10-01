@@ -77,7 +77,7 @@ export function createThreadCommands() {
 			if (result.includes("发串成功")) {
 				await ctx.reply(`🎲 Dice rolled: ${diceRange}`);
 			} else {
-				await ctx.reply("❌ Failed to roll dice. Please try again.");
+				await ctx.reply("❌ Failed to roll dice. Please try again." + result);
 			}
 		}, "❌ Failed to roll dice. Please try again."),
 	);
