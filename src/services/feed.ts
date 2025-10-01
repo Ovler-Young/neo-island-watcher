@@ -1,6 +1,7 @@
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { feedStates } from "../storage/feed-state.ts";
 import { handleNewThread } from "./thread.ts";
+import { handleRemovedThread } from "./unsubscribe.ts";
 
 export async function checkFeed(feedUuid: string): Promise<void> {
 	try {
@@ -33,6 +34,20 @@ export async function checkFeed(feedUuid: string): Promise<void> {
 				}
 			}
 			pageno++;
+		}
+
+		const state = await feedStates.getFeedState(feedUuid);
+		const knownThreads = state?.knownThreads || [];
+		const removedThreads = knownThreads.filter((id) => !ThreadIds.includes(id));
+
+		if (removedThreads.length > 0) {
+			console.log(
+				`🗑️ Found ${removedThreads.length} removed threads in feed ${feedUuid}`,
+			);
+
+			for (const threadId of removedThreads) {
+				await handleRemovedThread(threadId, feedUuid);
+			}
 		}
 
 		await feedStates.updateFeedCheck(feedUuid, ThreadIds);
