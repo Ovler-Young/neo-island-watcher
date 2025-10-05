@@ -1,4 +1,5 @@
 import { xdnmbClient } from "../../api/xdnmb.ts";
+import { checkThreadForReplies } from "../../services/thread.ts";
 import type { CommandDefinition } from "../types.ts";
 
 export const reply: CommandDefinition = {
@@ -12,8 +13,10 @@ export const reply: CommandDefinition = {
 			params.message as string,
 			cookieData.cookie,
 		);
-		return result.includes("回复成功")
-			? "✅ Reply posted successfully!"
-			: "❌ Failed to post reply. Please try again.";
+		if (result.includes("回复成功")) {
+			await checkThreadForReplies(threadId);
+			return "✅ Reply posted successfully!";
+		}
+		return "❌ Failed to post reply. Please try again.";
 	},
 };

@@ -1,4 +1,5 @@
 import { xdnmbClient } from "../../api/xdnmb.ts";
+import { checkThreadForReplies } from "../../services/thread.ts";
 import type { CommandDefinition } from "../types.ts";
 
 export const r: CommandDefinition = {
@@ -14,8 +15,10 @@ export const r: CommandDefinition = {
 			diceRange,
 			cookieData.cookie,
 		);
-		return result.includes("回复成功")
-			? `🎲 Dice rolled: ${diceRange}`
-			: "❌ Failed to roll dice. Please try again.";
+		if (result.includes("回复成功")) {
+			await checkThreadForReplies(threadId);
+			return `🎲 Dice rolled: ${diceRange}`;
+		}
+		return "❌ Failed to roll dice. Please try again.";
 	},
 };

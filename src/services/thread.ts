@@ -102,7 +102,7 @@ export async function checkExistingThreads(): Promise<void> {
 	}
 }
 
-async function checkThreadForReplies(threadId: string): Promise<void> {
+export async function checkThreadForReplies(threadId: string): Promise<void> {
 	try {
 		const threadState = await threadStates.getThreadState(threadId);
 		if (!threadState) {
