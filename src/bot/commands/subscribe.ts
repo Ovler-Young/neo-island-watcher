@@ -5,7 +5,7 @@ import type { CommandDefinition } from "../types.ts";
 export const subscribe: CommandDefinition = {
 	name: "subscribe",
 	description: "Subscribe to a thread",
-	guards: ["groupOnly", "threadContext", "groupBinding"],
+	guards: ["groupOnly", "groupBinding"],
 	handler: async ({ ctx, threadId }) => {
 		const groupId = ctx.chat?.id.toString() ?? "";
 		const { groupBindings } = await import("../../storage/group-bindings.ts");
