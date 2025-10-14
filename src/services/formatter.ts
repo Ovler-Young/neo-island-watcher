@@ -8,10 +8,6 @@ export async function formatThreadMessage(thread: FeedThread): Promise<string> {
 	const threadUrl = xdnmbClient.buildThreadUrl(thread.id.toString());
 	const formattedContent = await processContent(thread.content);
 	let header = "";
-	if (thread.img && thread.ext) {
-		const imageUrl = `${config.xdnmbImageBase}/image/${thread.img}${thread.ext}`;
-		header += `<a href="${imageUrl}">${thread.img}</a>\n`;
-	}
 
 	header += `<a href="${threadUrl}">${thread.id}</a> | #${thread.user_hash}`;
 	if (thread.title && thread.title !== "无标题") {
@@ -33,10 +29,6 @@ export async function formatReplyMessage(
 	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
 	const formattedContent = await processContent(reply.content);
 	let header = "";
-	if (reply.img && reply.ext) {
-		const imageUrl = `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`;
-		header += `<a href="${imageUrl}">${reply.img}</a>\n`;
-	}
 
 	header += `<a href="${replyUrl}">${reply.id}</a> | #${reply.user_hash}`;
 	if (reply.title && reply.title !== "无标题") {

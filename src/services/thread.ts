@@ -66,13 +66,26 @@ export async function handleNewThread(
 			// Send initial thread message to the topic
 			const initialMessage = await formatThreadMessage(thread);
 
-			const sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
-				message_thread_id: topicId,
-				parse_mode: "HTML",
-				link_preview_options: {
-					is_disabled: !thread.img && !thread.ext,
-				},
-			});
+			let sentMessage: { message_id: number };
+			if (thread.img && thread.ext) {
+				// Send photo with caption if thread has image
+				const imageUrl = `${config.xdnmbImageBase}/image/${thread.img}${thread.ext}`;
+				sentMessage = await bot.api.sendPhoto(groupId, imageUrl, {
+					caption: initialMessage,
+					message_thread_id: topicId,
+					parse_mode: "HTML",
+					show_caption_above_media: true,
+				});
+			} else {
+				// Send text-only message if no image
+				sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
+					message_thread_id: topicId,
+					parse_mode: "HTML",
+					link_preview_options: {
+						is_disabled: true,
+					},
+				});
+			}
 
 			// Pin the initial message
 			await bot.api.pinChatMessage(groupId, sentMessage.message_id);
@@ -230,22 +243,29 @@ async function sendBatchedReplies(
 
 				// Handle image replies specially
 				if (isImage && i === messageChunks.length - 1) {
-					currentBatch.push(chunk);
-					await bot.api.sendMessage(
-						binding.groupId,
-						currentBatch.join(SEPARATOR),
-						{
-							message_thread_id: binding.topicId,
-							parse_mode: "HTML",
-							link_preview_options: {
-								is_disabled: false,
-								url: `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`,
-								prefer_large_media: true,
+					// Send any accumulated batch first as text-only
+					if (currentBatch.length > 0) {
+						await bot.api.sendMessage(
+							binding.groupId,
+							currentBatch.join(SEPARATOR),
+							{
+								message_thread_id: binding.topicId,
+								parse_mode: "HTML",
+								link_preview_options: { is_disabled: true },
 							},
-						},
-					);
-					currentBatch = [];
-					currentLength = 0;
+						);
+						currentBatch = [];
+						currentLength = 0;
+					}
+
+					// Send image with caption
+					const imageUrl = `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`;
+					await bot.api.sendPhoto(binding.groupId, imageUrl, {
+						caption: chunk,
+						message_thread_id: binding.topicId,
+						parse_mode: "HTML",
+						show_caption_above_media: true,
+					});
 				} else {
 					currentBatch.push(chunk);
 					currentLength +=
