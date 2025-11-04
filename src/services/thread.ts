@@ -68,14 +68,36 @@ export async function handleNewThread(
 
 			let sentMessage: { message_id: number };
 			if (thread.img && thread.ext) {
-				// Send photo with caption if thread has image
+				// Try to send photo with caption if thread has image
 				const imageUrl = `${config.xdnmbImageBase}/image/${thread.img}${thread.ext}`;
-				sentMessage = await bot.api.sendPhoto(groupId, imageUrl, {
-					caption: initialMessage,
-					message_thread_id: topicId,
-					parse_mode: "HTML",
-					show_caption_above_media: true,
-				});
+				try {
+					sentMessage = await bot.api.sendPhoto(groupId, imageUrl, {
+						caption: initialMessage,
+						message_thread_id: topicId,
+						parse_mode: "HTML",
+						show_caption_above_media: true,
+					});
+				} catch (error) {
+					// Fall back to text message with image link if sendPhoto fails
+					console.error(
+						`Failed to send photo ${imageUrl} for thread ${thread.id}, falling back to link preview:`,
+						error,
+					);
+					const messageWithImageLink = `<a href="${imageUrl}">${thread.img}</a>\n${initialMessage}`;
+					sentMessage = await bot.api.sendMessage(
+						groupId,
+						messageWithImageLink,
+						{
+							message_thread_id: topicId,
+							parse_mode: "HTML",
+							link_preview_options: {
+								is_disabled: false,
+								url: imageUrl,
+								prefer_large_media: true,
+							},
+						},
+					);
+				}
 			} else {
 				// Send text-only message if no image
 				sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
@@ -258,14 +280,32 @@ async function sendBatchedReplies(
 						currentLength = 0;
 					}
 
-					// Send image with caption
+					// Try to send image with caption
 					const imageUrl = `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`;
-					await bot.api.sendPhoto(binding.groupId, imageUrl, {
-						caption: chunk,
-						message_thread_id: binding.topicId,
-						parse_mode: "HTML",
-						show_caption_above_media: true,
-					});
+					try {
+						await bot.api.sendPhoto(binding.groupId, imageUrl, {
+							caption: chunk,
+							message_thread_id: binding.topicId,
+							parse_mode: "HTML",
+							show_caption_above_media: true,
+						});
+					} catch (error) {
+						// Fall back to text message with image link if sendPhoto fails
+						console.error(
+							`Failed to send photo ${imageUrl} for reply ${reply.id}, falling back to link preview:`,
+							error,
+						);
+						const messageWithImageLink = `<a href="${imageUrl}">${reply.img}</a>\n${chunk}`;
+						await bot.api.sendMessage(binding.groupId, messageWithImageLink, {
+							message_thread_id: binding.topicId,
+							parse_mode: "HTML",
+							link_preview_options: {
+								is_disabled: false,
+								url: imageUrl,
+								prefer_large_media: true,
+							},
+						});
+					}
 				} else {
 					currentBatch.push(chunk);
 					currentLength +=
