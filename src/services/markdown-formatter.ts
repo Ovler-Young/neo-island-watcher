@@ -105,7 +105,7 @@ export async function formatThreadAsMarkdown(
 	}
 
 	// 3. Format synchronously (fast!)
-	let content = "";
+	let content = "# " + threadData.title + "\n\n";
 
 	// Add thread header and content
 	content += formatThreadMessageMarkdown(threadData);
