@@ -92,6 +92,7 @@ export async function getMaxCachedPage(threadId: string): Promise<number> {
 			if (entry.isFile && entry.name.match(/^page(\d+)\.json$/)) {
 				const pageNum = Number.parseInt(
 					entry.name.replace("page", "").replace(".json", ""),
+					10,
 				);
 				if (pageNum > maxPage) {
 					maxPage = pageNum;
@@ -123,6 +124,7 @@ export async function getCachedPages(threadId: string): Promise<number[]> {
 			if (entry.isFile && entry.name.match(/^page(\d+)\.json$/)) {
 				const pageNum = Number.parseInt(
 					entry.name.replace("page", "").replace(".json", ""),
+					10,
 				);
 				pages.push(pageNum);
 			}
