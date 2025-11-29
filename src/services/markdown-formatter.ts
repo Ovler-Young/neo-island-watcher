@@ -1,4 +1,4 @@
-import type { ThreadData } from "../api/types.ts";
+import type { ProgressCallback, ThreadData } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
 import { formatReplyMessage, formatThreadMessage } from "./formatter.ts";
@@ -14,13 +14,16 @@ function convertHtmlLinksToMarkdown(html: string): string {
 /**
  * Formats a complete thread as a markdown document
  * @param threadId - The thread ID to fetch and format
- * @returns Formatted markdown string with thread content and all replies
+ * @param onProgress - Optional callback for progress updates
+ * @returns Object containing markdown string and thread data
  */
 export async function formatThreadAsMarkdown(
 	threadId: string,
-): Promise<string> {
+	onProgress?: ProgressCallback,
+): Promise<{ markdown: string; threadData: ThreadData }> {
 	const threadData: ThreadData = await xdnmbClient.getFullThread(
 		Number.parseInt(threadId, 10),
+		onProgress,
 	);
 
 	const messages: string[] = [];
@@ -62,5 +65,8 @@ export async function formatThreadAsMarkdown(
 		}
 	}
 
-	return messages.join("\n\n---\n");
+	return {
+		markdown: messages.join("\n\n---\n"),
+		threadData,
+	};
 }

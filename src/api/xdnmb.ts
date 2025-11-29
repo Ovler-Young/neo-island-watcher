@@ -117,14 +117,26 @@ export class XDNMBClient {
 		return data;
 	}
 
-	getFullThread(id: number): Promise<ThreadData> {
-		return this.getUpdatedThread(id);
+	getFullThread(
+		id: number,
+		onProgress?: (progress: {
+			current: number;
+			total: number;
+			percentage: number;
+		}) => void,
+	): Promise<ThreadData> {
+		return this.getUpdatedThread(id, 0, 0, onProgress);
 	}
 
 	async getUpdatedThread(
 		id: number,
-		lastCount: number = 0,
-		lastReplyId: number = 0,
+		lastCount = 0,
+		lastReplyId = 0,
+		onProgress?: (progress: {
+			current: number;
+			total: number;
+			percentage: number;
+		}) => void,
 	): Promise<ThreadData> {
 		const threadId = id.toString();
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
@@ -163,6 +175,23 @@ export class XDNMBClient {
 					this.getThread(id, pageNum, newMaxPage),
 				);
 				await Promise.all(chunkPromises);
+
+				// Report backfill progress
+				if (onProgress) {
+					const backfilledSoFar = Math.min(
+						i + concurrencyLimit,
+						missingPages.length,
+					);
+					const totalPages = newMaxPage;
+					const percentage = Math.floor(
+						(backfilledSoFar / missingPages.length) * 50,
+					); // First 50%
+					onProgress({
+						current: backfilledSoFar,
+						total: totalPages,
+						percentage,
+					});
+				}
 			}
 		}
 
@@ -184,6 +213,19 @@ export class XDNMBClient {
 			const chunkData = await Promise.all(chunkPromises);
 
 			allRemainingPagesData.push(...chunkData);
+
+			// Report fetch progress
+			if (onProgress) {
+				const fetchedSoFar =
+					Math.min(i + concurrencyLimit, pagesToFetch.length) + 1; // +1 for startPage
+				const totalPages = newMaxPage;
+				const percentage = Math.floor((fetchedSoFar / totalPages) * 100);
+				onProgress({
+					current: fetchedSoFar,
+					total: totalPages,
+					percentage,
+				});
+			}
 		}
 
 		const allFetchedReplies = [

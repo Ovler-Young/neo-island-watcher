@@ -88,3 +88,11 @@ export interface TimelineInfo {
 	notice: string;
 	max_page: number;
 }
+
+export interface ProgressInfo {
+	current: number; // Current page being fetched
+	total: number; // Total pages to fetch
+	percentage: number; // Completion percentage (0-100)
+}
+
+export type ProgressCallback = (progress: ProgressInfo) => void;
