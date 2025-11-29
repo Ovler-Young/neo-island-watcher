@@ -230,7 +230,7 @@ function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
 		return false;
 	}
 
-	if (reply.id === 99999999) {
+	if (reply.id === 99999999 || reply.id === 9999999) {
 		return false;
 	}
 
