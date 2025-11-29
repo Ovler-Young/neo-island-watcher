@@ -112,10 +112,6 @@ export class XDNMBClient {
 		// Only cache non-last pages
 		if (!isLastPage) {
 			await setCachedPage(threadId, page, data);
-		} else {
-			console.log(
-				`⏭️  Skipping cache for last page: thread ${threadId}, page ${page}`,
-			);
 		}
 
 		return data;
