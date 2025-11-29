@@ -2,102 +2,117 @@ import type { ProgressInfo, Reply, ThreadData } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
 
-// Process content by cleaning HTML tags
-const processContent = (content: string): string => {
-	let processed = content
-		.replace(/<font color="#789922">&gt;&gt;/g, ">>")
-		.replace(/<\/font><br \/>/g, "\n")
-		.replace(/<\/font>/g, "\n")
-		.replace(/<br \/>\r\n/g, "\n")
-		.replace(/<br \/>\n/g, "\n");
+// Fast synchronous content processing for markdown
+function processContentFast(content: string): string {
+	let processed = content;
 
-	processed = processed
-		.replace(/<b>/g, "**")
-		.replace(/<\/b>/g, "**")
-		.replace(/<small>/g, "`")
-		.replace(/<\/small>/g, "`");
+	// Decode HTML entities
+	processed = processed.replace(/&nbsp;/g, " ");
+	processed = processed.replace(/&lt;/g, "<");
+	processed = processed.replace(/&gt;/g, ">");
+	processed = processed.replace(/&amp;/g, "&");
+	processed = processed.replace(/&quot;/g, '"');
+	processed = processed.replace(/&#39;/g, "'");
+
+	// Convert >>No. references to links (assume all are refs, not threads for speed)
+	processed = processed.replace(/>>No\.(\d+)/g, (_, postId) => {
+		const url = xdnmbClient.buildRefUrl(postId);
+		return `[>>No.${postId}](${url})`;
+	});
+
+	// Remove green text font tags
+	processed = processed.replace(/<font color="#789922">>/g, ">");
+	processed = processed.replace(/<\/font>/g, "");
+
+	// Convert spoiler tags
+	processed = processed.replace(/\[h\]([^[]+)\[\/h\]/g, "||$1||");
+
+	// Remove bold and small tags (already processed by API)
+	processed = processed.replace(/<b>/g, "");
+	processed = processed.replace(/<\/b>/g, "");
+	processed = processed.replace(/<small>/g, "");
+	processed = processed.replace(/<\/small>/g, "");
+
+	// Convert line breaks
+	processed = processed.replace(/<br \/>/g, "\n");
+
+	// Remove any remaining HTML tags
+	processed = processed.replace(/<[^>]+>/g, "");
+
+	// Clean up excessive newlines
+	processed = processed.replace(/\n{3,}/g, "\n\n");
 
 	return processed;
-};
+}
 
-// Format thread header
-const formatThreadHeader = (thread: ThreadData): string => {
+// Format thread message for markdown
+function formatThreadMessageMarkdown(thread: ThreadData): string {
+	const threadUrl = xdnmbClient.buildThreadUrl(thread.id.toString());
+	const formattedContent = processContentFast(thread.content);
 	let header = "";
+
+	header += `[${thread.id}](${threadUrl}) | #${thread.user_hash}`;
 	if (thread.title && thread.title !== "无标题") {
-		header += `# ${thread.title}\n\n`;
-	} else {
-		header += `# ${thread.id}\n\n`;
+		header += ` | ${thread.title}`;
 	}
 	if (thread.name && thread.name !== "无名氏") {
-		header += `**${thread.name}**\n\n`;
+		header += ` | ${thread.name}`;
 	}
-	header += `No.${thread.id}  ${thread.user_hash}  ${thread.now}\n`;
-	if (thread.img) {
-		const imageBaseUrl = `${config.xdnmbFrontendBase}/image`;
-		header += `![image](${imageBaseUrl}/${thread.img}${thread.ext})\n`;
-	}
-	return header;
-};
+	header += ` | ${thread.now}\n`;
 
-// Format reply
-const formatReply = (reply: Reply, isPo: boolean): string => {
-	let replyText = "";
-	const headerLevel = isPo ? "##" : "###";
+	return header + formattedContent;
+}
 
+// Format reply message for markdown
+function formatReplyMessageMarkdown(
+	reply: Reply,
+	threadId: string,
+	page: number,
+): string {
+	const replyUrl = `${config.xdnmbFrontendBase}/t/${threadId}/page/${page}`;
+	const formattedContent = processContentFast(reply.content);
+	let header = "";
+
+	header += `[${reply.id}](${replyUrl}) | #${reply.user_hash}`;
 	if (reply.title && reply.title !== "无标题") {
-		replyText += `\n${headerLevel} ${reply.title}\n\n`;
-	} else {
-		replyText += `\n${headerLevel} No.${reply.id}\n\n`;
+		header += ` | ${reply.title}`;
 	}
-
 	if (reply.name && reply.name !== "无名氏") {
-		replyText += `**${reply.name}**\n`;
+		header += ` | ${reply.name}`;
 	}
+	header += ` | ${reply.now}\n`;
 
-	replyText += `${reply.user_hash}  ${reply.now}  No.${reply.id}\n`;
-
-	if (reply.img) {
-		const imageBaseUrl = `${config.xdnmbFrontendBase}/image`;
-		replyText += `![image](${imageBaseUrl}/${reply.img}${reply.ext})\n`;
-	}
-
-	replyText += `${processContent(reply.content)}\n`;
-	return replyText;
-};
+	return header + formattedContent;
+}
 
 export async function formatThreadAsMarkdown(
 	threadId: string | number,
 	onProgress?: (progress: ProgressInfo) => void,
 ): Promise<{ markdown: string; threadData: ThreadData }> {
+	const normalizedThreadId = Number(threadId);
+	const threadIdStr = normalizedThreadId.toString();
+
 	// 1. Fetch all data
 	const threadData = await xdnmbClient.getFullThread(
-		Number(threadId),
+		normalizedThreadId,
 		onProgress,
 	);
 
-	// 2. Format synchronously
+	// 2. Format synchronously (fast!)
 	let content = "";
 
 	// Add thread header and content
-	content += formatThreadHeader(threadData);
-	content += `${processContent(threadData.content)}\n`;
+	content += formatThreadMessageMarkdown(threadData);
+	content += "\n\n---\n\n";
 
 	// Process replies
-	// We assume the thread starter is the PO.
-	// If we wanted to support multiple POs (like from a file), we would need that data.
-	// For now, we just use the thread starter's hash.
-	const poIds = new Set<string>();
-	poIds.add(threadData.user_hash);
-
-	for (const reply of threadData.Replies) {
-		const isPo = poIds.has(reply.user_hash);
-		content += formatReply(reply, isPo);
+	const repliesPerPage = 19;
+	for (let i = 0; i < threadData.Replies.length; i++) {
+		const reply = threadData.Replies[i];
+		const page = Math.floor(i / repliesPerPage) + 1;
+		content += formatReplyMessageMarkdown(reply, threadIdStr, page);
+		content += "\n\n---\n\n";
 	}
-
-	// no single \n
-	content = content.replace(/\n/g, "\n\n");
-	// Clean up excessive newlines
-	content = content.replace(/\n{3,}/g, "\n\n");
 
 	return { markdown: content, threadData };
 }
