@@ -25,6 +25,9 @@ export const get: CommandDefinition = {
 
 			// Get formatted title from threadStates
 			const threadState = await threadStates.getThreadState(threadId);
+			if (!threadState) {
+				return "❌ Thread not found";
+			}
 			const formattedTitle = threadState?.title;
 
 			const { markdown: filteredMarkdown, threadData } =
@@ -58,21 +61,6 @@ export const get: CommandDefinition = {
 					threadState,
 				);
 
-			const allState = threadState
-				? { ...threadState, writer: ["*"] }
-				: undefined;
-
-			const { markdown: allMarkdown } = await formatThreadAsMarkdown(
-				threadId,
-				undefined, // No progress needed for second pass
-				formattedTitle,
-				allState,
-			);
-
-			console.log(
-				`Markdown generated - Filtered: ${filteredMarkdown.length} chars, All: ${allMarkdown.length} chars`,
-			);
-
 			// Update status to generating files
 			if (statusMsg) {
 				await ctx.api.editMessageText(
@@ -94,23 +82,35 @@ export const get: CommandDefinition = {
 				"filtered",
 			);
 			const filteredFile = new InputFile(filteredBuffer, filteredFilename);
-
-			// All version
-			const allBuffer = encoder.encode(allMarkdown);
-			const allFilename = generateThreadFilename(threadId, title, "all");
-			const allFile = new InputFile(allBuffer, allFilename);
-
-			console.log(
-				`Sending documents - Filtered: ${filteredFilename}, All: ${allFilename}`,
-			);
-
-			// Send both documents
 			await ctx.replyWithDocument(filteredFile);
-			await ctx.replyWithDocument(allFile);
 
-			// Delete status message
 			if (statusMsg) {
 				await ctx.api.deleteMessage(chatId, statusMsg.message_id);
+			}
+
+			if (!threadState.writer.includes("*")) {
+				const allState = { ...threadState, writer: ["*"] };
+
+				const { markdown: allMarkdown } = await formatThreadAsMarkdown(
+					threadId,
+					undefined, // No progress needed for second pass
+					formattedTitle,
+					allState,
+				);
+
+				console.log(
+					`Markdown generated - Filtered: ${filteredMarkdown.length} chars, All: ${allMarkdown.length} chars`,
+				);
+
+				const allBuffer = encoder.encode(allMarkdown);
+				const allFilename = generateThreadFilename(threadId, title, "all");
+				const allFile = new InputFile(allBuffer, allFilename);
+
+				console.log(
+					`Sending documents - Filtered: ${filteredFilename}, All: ${allFilename}`,
+				);
+
+				await ctx.replyWithDocument(allFile);
 			}
 
 			console.log(`Documents sent successfully for thread ${threadId}`);
