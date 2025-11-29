@@ -206,7 +206,10 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 	}
 }
 
-function shouldSendReply(reply: Reply, threadState: ThreadStateData): boolean {
+export function shouldSendReply(
+	reply: Reply,
+	threadState: ThreadStateData,
+): boolean {
 	const isInWriterList = threadState.writer.includes(reply.user_hash);
 	const isWildcardWriter = threadState.writer.includes("*");
 

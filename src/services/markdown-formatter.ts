@@ -1,6 +1,8 @@
 import type { ProgressInfo, Reply, ThreadData } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
+import type { ThreadStateData } from "../storage/thread-state.ts";
+import { shouldSendReply } from "./thread.ts";
 
 // Fast synchronous content processing for markdown
 function processContentFast(content: string): string {
@@ -89,7 +91,11 @@ export async function formatThreadAsMarkdown(
 	threadId: string | number,
 	onProgress?: (progress: ProgressInfo) => void,
 	formattedTitle?: string,
-): Promise<{ markdown: string; threadData: ThreadData }> {
+	filterState?: ThreadStateData,
+): Promise<{
+	markdown: string;
+	threadData: ThreadData;
+}> {
 	const normalizedThreadId = Number(threadId);
 	const threadIdStr = normalizedThreadId.toString();
 
@@ -104,21 +110,36 @@ export async function formatThreadAsMarkdown(
 		threadData.title = formattedTitle;
 	}
 
-	// 3. Format synchronously (fast!)
-	let content = "# " + threadData.title + "\n\n";
+	// 3. Format thread header
+	let content = `# ${threadData.title}\n\n`;
 
-	// Add thread header and content
+	// If no filter state provided, default to allowing everything (writer = ["*"])
+	const stateForFilter: ThreadStateData = filterState || {
+		title: threadData.title,
+		lastReplyCount: threadData.ReplyCount,
+		lastReplyId: 0,
+		lastCheck: new Date().toISOString(),
+		lastNewReplyAt: new Date().toISOString(),
+		writer: ["*"],
+		bindings: [],
+	};
+
 	content += formatThreadMessageMarkdown(threadData);
 	content += "\n\n---\n\n";
-
 	// Process replies
 	const repliesPerPage = 19;
 	for (let i = 0; i < threadData.Replies.length; i++) {
 		const reply = threadData.Replies[i];
 		const page = Math.floor(i / repliesPerPage) + 1;
-		content += formatReplyMessageMarkdown(reply, threadIdStr, page);
-		content += "\n\n---\n\n";
+
+		if (shouldSendReply(reply, stateForFilter)) {
+			content += formatReplyMessageMarkdown(reply, threadIdStr, page);
+			content += "\n\n---\n\n";
+		}
 	}
 
-	return { markdown: content, threadData };
+	return {
+		markdown: content,
+		threadData,
+	};
 }

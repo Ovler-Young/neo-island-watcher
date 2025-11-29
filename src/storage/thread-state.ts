@@ -25,9 +25,9 @@ class ThreadStatesStorage extends BaseStorage<ThreadStateStorage> {
 		super("thread-state.json");
 	}
 
-	async getThreadState(threadId: string): Promise<ThreadStateData | null> {
+	async getThreadState(threadId: string): Promise<ThreadStateData | undefined> {
 		const data = await this.read();
-		return data[threadId] || null;
+		return data[threadId];
 	}
 
 	async getAllThreads(): Promise<ThreadStateStorage> {

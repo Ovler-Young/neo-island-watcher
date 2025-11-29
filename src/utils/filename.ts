@@ -17,10 +17,12 @@ export function sanitizeFilename(title: string): string {
 export function generateThreadFilename(
 	threadId: string,
 	title: string,
+	variant?: "filtered" | "all",
 ): string {
+	const suffix = variant === "all" ? "_all" : "";
 	if (title && title !== "无标题") {
 		const sanitized = sanitizeFilename(title);
-		return `${sanitized}.md`;
+		return `${sanitized}${suffix}.md`;
 	}
-	return `thread_${threadId}.md`;
+	return `thread_${threadId}${suffix}.md`;
 }

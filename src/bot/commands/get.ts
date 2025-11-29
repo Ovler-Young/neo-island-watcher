@@ -27,67 +27,93 @@ export const get: CommandDefinition = {
 			const threadState = await threadStates.getThreadState(threadId);
 			const formattedTitle = threadState?.title;
 
-			// Format thread as markdown with progress tracking
-			const { markdown, threadData } = await formatThreadAsMarkdown(
+			const { markdown: filteredMarkdown, threadData } =
+				await formatThreadAsMarkdown(
+					threadId,
+					(progress: ProgressInfo) => {
+						console.log(
+							`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
+						);
+						const now = Date.now();
+						if (
+							(now - lastUpdate >= 10000 || progress.percentage === 100) &&
+							statusMsg
+						) {
+							ctx.api
+								.editMessageText(
+									chatId,
+									statusMsg.message_id,
+									`📥 Fetching thread... Page ${progress.current}/${progress.total} (${progress.percentage}%)`,
+								)
+								.then(() => {
+									console.log("Status message updated successfully");
+									lastUpdate = now;
+								})
+								.catch((err) => {
+									console.error("Failed to update status message:", err);
+								});
+						}
+					},
+					formattedTitle,
+					threadState,
+				);
+
+			const allState = threadState
+				? { ...threadState, writer: ["*"] }
+				: undefined;
+
+			const { markdown: allMarkdown } = await formatThreadAsMarkdown(
 				threadId,
-				(progress: ProgressInfo) => {
-					console.log(
-						`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
-					);
-					const now = Date.now();
-					if (
-						(now - lastUpdate >= 10000 || progress.percentage === 100) &&
-						statusMsg
-					) {
-						ctx.api
-							.editMessageText(
-								chatId,
-								statusMsg.message_id,
-								`📥 Fetching thread... Page ${progress.current}/${progress.total} (${progress.percentage}%)`,
-							)
-							.then(() => {
-								console.log("Status message updated successfully");
-								lastUpdate = now;
-							})
-							.catch((err) => {
-								console.error("Failed to update status message:", err);
-							});
-					}
-				},
+				undefined, // No progress needed for second pass
 				formattedTitle,
+				allState,
 			);
 
-			console.log(`Markdown generated, length: ${markdown.length} chars`);
+			console.log(
+				`Markdown generated - Filtered: ${filteredMarkdown.length} chars, All: ${allMarkdown.length} chars`,
+			);
 
-			// Update status to generating file
+			// Update status to generating files
 			if (statusMsg) {
 				await ctx.api.editMessageText(
 					chatId,
 					statusMsg.message_id,
-					"✅ Generating file...",
+					"✅ Generating files...",
 				);
 			}
 
-			// Create file with proper filename using formatted title
+			// Create both files
 			const encoder = new TextEncoder();
-			const buffer = encoder.encode(markdown);
-			const filename = generateThreadFilename(
+			const title = formattedTitle || threadData.title;
+
+			// Filtered version
+			const filteredBuffer = encoder.encode(filteredMarkdown);
+			const filteredFilename = generateThreadFilename(
 				threadId,
-				formattedTitle || threadData.title,
+				title,
+				"filtered",
 			);
-			const file = new InputFile(buffer, filename);
+			const filteredFile = new InputFile(filteredBuffer, filteredFilename);
 
-			console.log(`Sending document file: ${filename}`);
+			// All version
+			const allBuffer = encoder.encode(allMarkdown);
+			const allFilename = generateThreadFilename(threadId, title, "all");
+			const allFile = new InputFile(allBuffer, allFilename);
 
-			// Send as document
-			await ctx.replyWithDocument(file);
+			console.log(
+				`Sending documents - Filtered: ${filteredFilename}, All: ${allFilename}`,
+			);
+
+			// Send both documents
+			await ctx.replyWithDocument(filteredFile);
+			await ctx.replyWithDocument(allFile);
 
 			// Delete status message
 			if (statusMsg) {
 				await ctx.api.deleteMessage(chatId, statusMsg.message_id);
 			}
 
-			console.log(`Document sent successfully for thread ${threadId}`);
+			console.log(`Documents sent successfully for thread ${threadId}`);
 			return undefined;
 		} catch (error) {
 			console.error(`Error getting thread ${threadId}:`, error);
