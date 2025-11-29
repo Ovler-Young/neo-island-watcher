@@ -1,215 +1,288 @@
 import { config } from "../config.ts";
 import { groupCookies } from "../storage/group-cookies.ts";
+import {
+  getCachedPage,
+  getCachedPages,
+  hasCachedPage,
+  setCachedPage,
+} from "../utils/cache.ts";
 import type {
-	CDNInfo,
-	FeedThread,
-	ForumGroup,
-	ThreadData,
-	TimelineInfo,
+  CDNInfo,
+  FeedThread,
+  ForumGroup,
+  ThreadData,
+  TimelineInfo,
 } from "./types.ts";
 
 export class XDNMBClient {
-	private readonly apiBase: string;
-	private readonly frontendBase: string;
+  private readonly apiBase: string;
+  private readonly frontendBase: string;
 
-	constructor() {
-		this.apiBase = config.xdnmbApiBase;
-		this.frontendBase = config.xdnmbFrontendBase;
-	}
+  constructor() {
+    this.apiBase = config.xdnmbApiBase;
+    this.frontendBase = config.xdnmbFrontendBase;
+  }
 
-	private async request<T>(
-		endpoint: string,
-		options: RequestInit = {},
-	): Promise<T> {
-		const url = `${this.apiBase}/Api/${endpoint}`;
-		const response = await fetch(url, {
-			...options,
-			headers: {
-				"User-Agent": "Neo-Island-Watcher/1.0",
-				...options.headers,
-			},
-		});
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<T> {
+    const url = `${this.apiBase}/Api/${endpoint}`;
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "User-Agent": "Neo-Island-Watcher/1.0",
+        ...options.headers,
+      },
+    });
 
-		if (!response.ok) {
-			throw new Error(`API request failed: ${response.status}`);
-		}
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
 
-		console.log(`API request to ${endpoint} succeeded.`);
+    console.log(`API request to ${endpoint} succeeded.`);
 
-		return await response.json();
-	}
+    return await response.json();
+  }
 
-	private async requestWithCookie<T>(
-		endpoint: string,
-		options: RequestInit = {},
-		cookie?: string,
-	): Promise<T> {
-		if (!cookie) {
-			const randomCookie = await groupCookies.getRandomCookie();
-			if (randomCookie) {
-				cookie = randomCookie.cookie;
-			} else {
-				throw new Error("No cookie available for authenticated request");
-			}
-		}
-		return this.request<T>(endpoint, {
-			...options,
-			headers: {
-				Cookie: `userhash=${cookie}`,
-				...options.headers,
-			},
-		});
-	}
+  private async requestWithCookie<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    cookie?: string,
+  ): Promise<T> {
+    if (!cookie) {
+      const randomCookie = await groupCookies.getRandomCookie();
+      if (randomCookie) {
+        cookie = randomCookie.cookie;
+      } else {
+        throw new Error("No cookie available for authenticated request");
+      }
+    }
+    return this.request<T>(endpoint, {
+      ...options,
+      headers: {
+        Cookie: `userhash=${cookie}`,
+        ...options.headers,
+      },
+    });
+  }
 
-	getCDNPaths(): Promise<CDNInfo[]> {
-		return this.request<CDNInfo[]>("getCDNPath");
-	}
+  getCDNPaths(): Promise<CDNInfo[]> {
+    return this.request<CDNInfo[]>("getCDNPath");
+  }
 
-	getForumList(): Promise<ForumGroup[]> {
-		return this.request<ForumGroup[]>("getForumList");
-	}
+  getForumList(): Promise<ForumGroup[]> {
+    return this.request<ForumGroup[]>("getForumList");
+  }
 
-	getTimelineList(): Promise<TimelineInfo[]> {
-		return this.request<TimelineInfo[]>("getTimelineList");
-	}
+  getTimelineList(): Promise<TimelineInfo[]> {
+    return this.request<TimelineInfo[]>("getTimelineList");
+  }
 
-	getFeed(uuid: string, page = 1): Promise<FeedThread[]> {
-		return this.request<FeedThread[]>(`feed?uuid=${uuid}&page=${page}`);
-	}
+  getFeed(uuid: string, page = 1): Promise<FeedThread[]> {
+    return this.request<FeedThread[]>(`feed?uuid=${uuid}&page=${page}`);
+  }
 
-	getThread(id: number, page = 1): Promise<ThreadData> {
-		return this.requestWithCookie<ThreadData>(`thread?id=${id}&page=${page}`);
-	}
+  async getThread(
+    id: number,
+    page = 1,
+    maxPage?: number,
+  ): Promise<ThreadData> {
+    const threadId = id.toString();
 
-	getFullThread(id: number): Promise<ThreadData> {
-		return this.getUpdatedThread(id);
-	}
+    // Check cache first
+    const cachedData = await getCachedPage(threadId, page);
+    if (cachedData) {
+      // If we have maxPage info and this is not the last page, use cache
+      if (maxPage && page < maxPage) {
+        return cachedData;
+      }
+      // If we don't have maxPage info but cache exists, use it for now
+      // (will be updated if it turns out to be the last page)
+      if (!maxPage) {
+        return cachedData;
+      }
+    }
 
-	async getUpdatedThread(
-		id: number,
-		lastCount: number = 0,
-		lastReplyId: number = 0,
-	): Promise<ThreadData> {
-		const startPage = Math.max(1, Math.ceil(lastCount / 19));
+    // Fetch from API
+    const data = await this.requestWithCookie<ThreadData>(
+      `thread?id=${id}&page=${page}`,
+    );
 
-		const initialPageData = await this.getThread(id, startPage);
-		const newTotalReplyCount = initialPageData.ReplyCount;
+    // Calculate if this is the last page
+    const calculatedMaxPage = Math.ceil(data.ReplyCount / 19);
+    const isLastPage = page >= calculatedMaxPage;
 
-		if (newTotalReplyCount <= lastCount) {
-			initialPageData.Replies = [];
-			return initialPageData;
-		}
+    // Only cache non-last pages
+    if (!isLastPage) {
+      await setCachedPage(threadId, page, data);
+    } else {
+      console.log(
+        `⏭️  Skipping cache for last page: thread ${threadId}, page ${page}`,
+      );
+    }
 
-		const newMaxPage = Math.ceil(newTotalReplyCount / 19);
+    return data;
+  }
 
-		const pagesToFetch: number[] = [];
-		for (let i = startPage + 1; i <= newMaxPage; i++) {
-			pagesToFetch.push(i);
-		}
+  getFullThread(id: number): Promise<ThreadData> {
+    return this.getUpdatedThread(id);
+  }
 
-		const allRemainingPagesData: ThreadData[] = [];
-		const concurrencyLimit = 3;
+  async getUpdatedThread(
+    id: number,
+    lastCount: number = 0,
+    lastReplyId: number = 0,
+  ): Promise<ThreadData> {
+    const threadId = id.toString();
+    const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
-		for (let i = 0; i < pagesToFetch.length; i += concurrencyLimit) {
-			const pageChunk = pagesToFetch.slice(i, i + concurrencyLimit);
+    // Get initial page to determine total reply count
+    const initialPageData = await this.getThread(id, startPage);
+    const newTotalReplyCount = initialPageData.ReplyCount;
 
-			const chunkPromises = pageChunk.map((pageNum) =>
-				this.getThread(id, pageNum),
-			);
-			const chunkData = await Promise.all(chunkPromises);
+    if (newTotalReplyCount <= lastCount) {
+      initialPageData.Replies = [];
+      return initialPageData;
+    }
 
-			allRemainingPagesData.push(...chunkData);
-		}
+    const newMaxPage = Math.ceil(newTotalReplyCount / 19);
 
-		const allFetchedReplies = [
-			...initialPageData.Replies,
-			...allRemainingPagesData.flatMap((page) => page.Replies),
-		];
+    // Check for missing cached pages and backfill them
+    const cachedPages = await getCachedPages(threadId);
+    const missingPages: number[] = [];
 
-		const newReplies = allFetchedReplies.filter(
-			(reply) => reply.id > lastReplyId,
-		);
+    // Find missing pages from 1 to newMaxPage-1 (excluding last page)
+    for (let i = 1; i < newMaxPage; i++) {
+      if (!cachedPages.includes(i) && !(await hasCachedPage(threadId, i))) {
+        missingPages.push(i);
+      }
+    }
 
-		initialPageData.Replies = newReplies;
-		return initialPageData;
-	}
+    // Backfill missing pages
+    if (missingPages.length > 0) {
+      console.log(
+        `🔄 Backfilling ${missingPages.length} missing pages for thread ${threadId}`,
+      );
+      const concurrencyLimit = 3;
+      for (let i = 0; i < missingPages.length; i += concurrencyLimit) {
+        const pageChunk = missingPages.slice(i, i + concurrencyLimit);
+        const chunkPromises = pageChunk.map((pageNum) =>
+          this.getThread(id, pageNum, newMaxPage)
+        );
+        await Promise.all(chunkPromises);
+      }
+    }
 
-	getRef(id: number): Promise<ThreadData> {
-		return this.requestWithCookie<ThreadData>(`ref?id=${id}`);
-	}
+    // Fetch pages that need updating (from startPage to newMaxPage)
+    const pagesToFetch: number[] = [];
+    for (let i = startPage + 1; i <= newMaxPage; i++) {
+      pagesToFetch.push(i);
+    }
 
-	getForum(id: number, page = 1): Promise<FeedThread[]> {
-		return this.requestWithCookie<FeedThread[]>(`showf?id=${id}&page=${page}`);
-	}
+    const allRemainingPagesData: ThreadData[] = [];
+    const concurrencyLimit = 3;
 
-	getTimeline(id: number, page = 1): Promise<FeedThread[]> {
-		return this.requestWithCookie<FeedThread[]>(
-			`timeline?id=${id}&page=${page}`,
-		);
-	}
+    for (let i = 0; i < pagesToFetch.length; i += concurrencyLimit) {
+      const pageChunk = pagesToFetch.slice(i, i + concurrencyLimit);
 
-	async isThread(id: number): Promise<boolean> {
-		const url = `${this.apiBase}/Api/thread?id=${id}`;
-		const response = await fetch(url, {});
+      const chunkPromises = pageChunk.map((pageNum) =>
+        this.getThread(id, pageNum, newMaxPage)
+      );
+      const chunkData = await Promise.all(chunkPromises);
 
-		if (!response.ok) {
-			// If response is not ok, it's an API error, not necessarily "not a thread"
-			// For now, we'll treat any non-200 as not a thread for this specific check
-			return false;
-		}
+      allRemainingPagesData.push(...chunkData);
+    }
 
-		const textResponse = await response.text();
-		if (textResponse === "该串不存在") {
-			return false;
-		}
+    const allFetchedReplies = [
+      ...initialPageData.Replies,
+      ...allRemainingPagesData.flatMap((page) => page.Replies),
+    ];
 
-		// If it's not "该串不存在" and response was ok, assume it's a valid thread
-		return true;
-	}
+    const newReplies = allFetchedReplies.filter(
+      (reply) => reply.id > lastReplyId,
+    );
 
-	addFeed(uuid: string, threadId: string): Promise<string> {
-		const url = `addFeed?uuid=${uuid}&tid=${threadId}`;
-		return this.request<string>(url, { method: "POST" });
-	}
+    initialPageData.Replies = newReplies;
+    return initialPageData;
+  }
 
-	delFeed(uuid: string, threadId: string): Promise<string> {
-		const url = `delFeed?uuid=${uuid}&tid=${threadId}`;
-		return this.request<string>(url, { method: "POST" });
-	}
+  getRef(id: number): Promise<ThreadData> {
+    return this.requestWithCookie<ThreadData>(`ref?id=${id}`);
+  }
 
-	async postReply(
-		threadId: string,
-		content: string,
-		cookie: string,
-		name = "无名氏",
-		title = "无标题",
-	): Promise<string> {
-		const url = `${this.frontendBase}/home/forum/doReplyThread.html`;
-		const formData = new FormData();
-		formData.append("name", name);
-		formData.append("title", title);
-		formData.append("content", content);
-		formData.append("resto", threadId);
+  getForum(id: number, page = 1): Promise<FeedThread[]> {
+    return this.requestWithCookie<FeedThread[]>(`showf?id=${id}&page=${page}`);
+  }
 
-		const response = await fetch(url, {
-			method: "POST",
-			headers: {
-				"User-Agent": "Neo-Island-Watcher/1.0",
-				Cookie: `userhash=${cookie}`,
-			},
-			body: formData,
-		});
+  getTimeline(id: number, page = 1): Promise<FeedThread[]> {
+    return this.requestWithCookie<FeedThread[]>(
+      `timeline?id=${id}&page=${page}`,
+    );
+  }
 
-		return await response.text();
-	}
+  async isThread(id: number): Promise<boolean> {
+    const url = `${this.apiBase}/Api/thread?id=${id}`;
+    const response = await fetch(url, {});
 
-	buildThreadUrl(threadId: string): string {
-		return `${this.frontendBase}/t/${threadId}`;
-	}
+    if (!response.ok) {
+      // If response is not ok, it's an API error, not necessarily "not a thread"
+      // For now, we'll treat any non-200 as not a thread for this specific check
+      return false;
+    }
 
-	buildRefUrl(postId: string): string {
-		return `${this.frontendBase}/Home/Forum/ref/id/${postId}`;
-	}
+    const textResponse = await response.text();
+    if (textResponse === "该串不存在") {
+      return false;
+    }
+
+    // If it's not "该串不存在" and response was ok, assume it's a valid thread
+    return true;
+  }
+
+  addFeed(uuid: string, threadId: string): Promise<string> {
+    const url = `addFeed?uuid=${uuid}&tid=${threadId}`;
+    return this.request<string>(url, { method: "POST" });
+  }
+
+  delFeed(uuid: string, threadId: string): Promise<string> {
+    const url = `delFeed?uuid=${uuid}&tid=${threadId}`;
+    return this.request<string>(url, { method: "POST" });
+  }
+
+  async postReply(
+    threadId: string,
+    content: string,
+    cookie: string,
+    name = "无名氏",
+    title = "无标题",
+  ): Promise<string> {
+    const url = `${this.frontendBase}/home/forum/doReplyThread.html`;
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("title", title);
+    formData.append("content", content);
+    formData.append("resto", threadId);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "User-Agent": "Neo-Island-Watcher/1.0",
+        Cookie: `userhash=${cookie}`,
+      },
+      body: formData,
+    });
+
+    return await response.text();
+  }
+
+  buildThreadUrl(threadId: string): string {
+    return `${this.frontendBase}/t/${threadId}`;
+  }
+
+  buildRefUrl(postId: string): string {
+    return `${this.frontendBase}/Home/Forum/ref/id/${postId}`;
+  }
 }
 
 export const xdnmbClient = new XDNMBClient();
