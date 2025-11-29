@@ -33,6 +33,7 @@ export const get: CommandDefinition = {
 			const { markdown: filteredMarkdown, threadData } =
 				await formatThreadAsMarkdown(
 					threadId,
+					threadState,
 					(progress: ProgressInfo) => {
 						console.log(
 							`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
@@ -58,7 +59,6 @@ export const get: CommandDefinition = {
 						}
 					},
 					formattedTitle,
-					threadState,
 				);
 
 			// Update status to generating files
@@ -93,9 +93,9 @@ export const get: CommandDefinition = {
 
 				const { markdown: allMarkdown } = await formatThreadAsMarkdown(
 					threadId,
-					undefined, // No progress needed for second pass
-					formattedTitle,
 					allState,
+					undefined,
+					formattedTitle,
 				);
 
 				console.log(

@@ -89,9 +89,9 @@ function formatReplyMessageMarkdown(
 
 export async function formatThreadAsMarkdown(
 	threadId: string | number,
+	threadState: ThreadStateData,
 	onProgress?: (progress: ProgressInfo) => void,
 	formattedTitle?: string,
-	filterState?: ThreadStateData,
 ): Promise<{
 	markdown: string;
 	threadData: ThreadData;
@@ -113,17 +113,6 @@ export async function formatThreadAsMarkdown(
 	// 3. Format thread header
 	let content = `# ${threadData.title}\n\n`;
 
-	// If no filter state provided, default to allowing everything (writer = ["*"])
-	const stateForFilter: ThreadStateData = filterState || {
-		title: threadData.title,
-		lastReplyCount: threadData.ReplyCount,
-		lastReplyId: 0,
-		lastCheck: new Date().toISOString(),
-		lastNewReplyAt: new Date().toISOString(),
-		writer: ["*"],
-		bindings: [],
-	};
-
 	content += formatThreadMessageMarkdown(threadData);
 	content += "\n\n---\n\n";
 	// Process replies
@@ -132,7 +121,7 @@ export async function formatThreadAsMarkdown(
 		const reply = threadData.Replies[i];
 		const page = Math.floor(i / repliesPerPage) + 1;
 
-		if (shouldSendReply(reply, stateForFilter)) {
+		if (shouldSendReply(reply, threadState)) {
 			content += formatReplyMessageMarkdown(reply, threadIdStr, page);
 			content += "\n\n---\n\n";
 		}
