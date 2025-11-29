@@ -88,6 +88,7 @@ function formatReplyMessageMarkdown(
 export async function formatThreadAsMarkdown(
 	threadId: string | number,
 	onProgress?: (progress: ProgressInfo) => void,
+	formattedTitle?: string,
 ): Promise<{ markdown: string; threadData: ThreadData }> {
 	const normalizedThreadId = Number(threadId);
 	const threadIdStr = normalizedThreadId.toString();
@@ -98,7 +99,12 @@ export async function formatThreadAsMarkdown(
 		onProgress,
 	);
 
-	// 2. Format synchronously (fast!)
+	// 2. Use formatted title if provided
+	if (formattedTitle) {
+		threadData.title = formattedTitle;
+	}
+
+	// 3. Format synchronously (fast!)
 	let content = "";
 
 	// Add thread header and content
