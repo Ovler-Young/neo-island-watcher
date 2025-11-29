@@ -196,6 +196,7 @@ export const get: CommandDefinition = {
 						.join(", ");
 					await ctx.reply(
 						`📄 Telegraph (${pageUrls.length} pages):\n${urlList}`,
+						{ parse_mode: "MarkdownV2" },
 					);
 				}
 			} catch (telegraphError) {
