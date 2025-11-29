@@ -139,11 +139,11 @@ export const get: CommandDefinition = {
 			}
 
 			if (!threadState.writer.includes("*")) {
-				const allState = { ...threadState, writer: ["*"] };
+				threadState.writer.push("*");
 
 				const { markdown: allMarkdown } = await formatThreadAsMarkdown(
 					threadId,
-					allState,
+					threadState,
 					undefined,
 					formattedTitle,
 				);
