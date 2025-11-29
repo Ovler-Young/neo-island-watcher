@@ -64,7 +64,7 @@ function escapeHtmlExceptTags(text: string): string {
 		.join("");
 }
 
-async function processContent(content: string): Promise<string> {
+export async function processContent(content: string): Promise<string> {
 	let processed = content;
 
 	// First, decode HTML entities to work with plain text

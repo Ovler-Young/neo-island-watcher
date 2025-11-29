@@ -1,6 +1,7 @@
 import type { Bot } from "grammy";
 import { all } from "./commands/all.ts";
 import { bindfeed } from "./commands/bindfeed.ts";
+import { get } from "./commands/get.ts";
 import { help } from "./commands/help.ts";
 import { po } from "./commands/po.ts";
 import { r } from "./commands/r.ts";
@@ -29,6 +30,7 @@ export async function setupCommands(bot: Bot) {
 		unsubscribe,
 		po,
 		all,
+		get,
 	];
 
 	const commandGroup = registry.registerAll(allCommands);
