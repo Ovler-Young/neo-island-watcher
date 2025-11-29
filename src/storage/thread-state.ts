@@ -11,6 +11,7 @@ export interface ThreadStateData {
 	lastReplyCount: number;
 	lastReplyId: number;
 	lastCheck: string;
+	lastNewReplyAt?: string; // ISO timestamp - when we last found new replies
 	writer: string[];
 	bindings: ThreadBinding[];
 }

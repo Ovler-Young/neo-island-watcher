@@ -1,5 +1,7 @@
 import { config } from "../config.ts";
 import { feedStates } from "../storage/feed-state.ts";
+import type { ThreadStateData } from "../storage/thread-state.ts";
+import { threadStates } from "../storage/thread-state.ts";
 
 import { checkFeed } from "./feed.ts";
 import { checkExistingThreads } from "./thread.ts";
@@ -34,6 +36,30 @@ export function stopMonitoring(): void {
 		monitoringInterval = undefined;
 		console.log("🛑 Monitoring stopped");
 	}
+}
+
+export async function shouldCheckThread(
+	threadId: string,
+	threadState: ThreadStateData,
+): Promise<boolean> {
+	if (!threadState.lastNewReplyAt) {
+		await threadStates.updateThreadState(threadId, {
+			lastNewReplyAt: threadState.lastCheck,
+		});
+		return true;
+	}
+
+	const now = Date.now();
+	const msSinceNewReply = now - new Date(threadState.lastNewReplyAt).getTime();
+	const msSinceLastCheck = now - new Date(threadState.lastCheck).getTime();
+
+	const inactiveThreshold = config.inactiveThreadDays * 24 * 60 * 60 * 1000;
+
+	if (msSinceNewReply > inactiveThreshold) {
+		return msSinceLastCheck >= config.inactiveCheckInterval;
+	}
+
+	return true;
 }
 
 async function checkAllFeeds(): Promise<void> {

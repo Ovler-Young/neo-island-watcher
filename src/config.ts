@@ -4,6 +4,8 @@ interface Config {
 	xdnmbFrontendBase: string;
 	xdnmbImageBase: string;
 	monitoringInterval: number;
+	inactiveThreadDays: number;
+	inactiveCheckInterval: number;
 }
 
 function parseInterval(interval: string): number {
@@ -49,5 +51,12 @@ export const config: Config = {
 	xdnmbImageBase: getOptionalEnv("XDNMB_IMAGE_BASE", "https://image.nmb.best"),
 	monitoringInterval: parseInterval(
 		getOptionalEnv("MONITORING_INTERVAL", "5m"),
+	),
+	inactiveThreadDays: Number.parseInt(
+		getOptionalEnv("INACTIVE_THREAD_DAYS", "31"),
+		10,
+	),
+	inactiveCheckInterval: parseInterval(
+		getOptionalEnv("INACTIVE_CHECK_INTERVAL", "24h"),
 	),
 };

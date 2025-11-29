@@ -12,6 +12,7 @@ import {
 	formatThreadMessage,
 	splitLongMessage,
 } from "./formatter.ts";
+import { shouldCheckThread } from "./monitor.ts";
 
 export async function handleNewThread(
 	thread: FeedThread,
@@ -50,6 +51,7 @@ export async function handleNewThread(
 				lastReplyCount: 0,
 				lastReplyId: 0,
 				lastCheck: new Date().toISOString(),
+				lastNewReplyAt: new Date().toISOString(),
 				writer: [thread.user_hash],
 				bindings: [
 					{
@@ -124,8 +126,20 @@ export async function checkExistingThreads(): Promise<void> {
 	try {
 		const allThreads = await threadStates.getAllThreads();
 
-		for (const threadId of Object.keys(allThreads)) {
+		for (const [threadId, threadState] of Object.entries(allThreads)) {
 			try {
+				if (!(await shouldCheckThread(threadId, threadState))) {
+					const lastNewReplyAt =
+						threadState.lastNewReplyAt ?? threadState.lastCheck;
+					const daysSinceNewReply =
+						(Date.now() - new Date(lastNewReplyAt).getTime()) /
+						(1000 * 60 * 60 * 24);
+					console.log(
+						`⏭️  Skipping inactive thread ${threadId} (${Math.floor(daysSinceNewReply)} days since new reply)`,
+					);
+					continue;
+				}
+
 				await checkThreadForReplies(threadId);
 				await new Promise((resolve) => setTimeout(resolve, 500));
 			} catch (error) {
@@ -193,6 +207,7 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 			lastCheck: new Date().toISOString(),
 			lastReplyCount: pageData.ReplyCount,
 			lastReplyId: lastReply.id,
+			lastNewReplyAt: new Date().toISOString(),
 		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
