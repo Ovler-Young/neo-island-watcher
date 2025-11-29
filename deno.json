@@ -9,6 +9,7 @@
 	},
 	"imports": {
 		"@biomejs/biome": "npm:@biomejs/biome@^2.2.4",
+		"@dcdunkan/telegraph": "jsr:@dcdunkan/telegraph@^2.0.0",
 		"grammy": "https://deno.land/x/grammy/mod.ts",
 		"grammy/auto-retry": "https://deno.land/x/grammy_auto_retry/mod.ts",
 		"grammy/commands": "https://deno.land/x/grammy_commands/mod.ts",

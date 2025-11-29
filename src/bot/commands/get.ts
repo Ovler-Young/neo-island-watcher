@@ -2,6 +2,7 @@ import { InputFile } from "grammy";
 import type { ProgressInfo } from "../../api/types.ts";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { formatThreadAsMarkdown } from "../../services/markdown-formatter.ts";
+import { exportToTelegraph } from "../../services/telegraph.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { threadStates } from "../../storage/thread-state.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
@@ -135,10 +136,6 @@ export const get: CommandDefinition = {
 			const filteredFile = new InputFile(filteredBuffer, filteredFilename);
 			await ctx.replyWithDocument(filteredFile);
 
-			if (statusMsg) {
-				await ctx.api.deleteMessage(chatId, statusMsg.message_id);
-			}
-
 			if (!threadState.writer.includes("*")) {
 				threadState.writer.push("*");
 
@@ -165,6 +162,55 @@ export const get: CommandDefinition = {
 			}
 
 			console.log(`Documents sent successfully for thread ${threadId}`);
+
+			// Export to Telegraph
+			try {
+				if (statusMsg) {
+					await ctx.api.editMessageText(
+						chatId,
+						statusMsg.message_id,
+						"📤 Creating Telegraph pages...",
+					);
+				}
+
+				console.log(`Starting Telegraph export for thread ${threadId}`);
+				const pageUrls = await exportToTelegraph(filteredMarkdown, title);
+				console.log(`Telegraph export complete: ${pageUrls.length} page(s)`);
+
+				// Delete status message before sending Telegraph URLs
+				if (statusMsg) {
+					await ctx.api
+						.deleteMessage(chatId, statusMsg.message_id)
+						.catch(() => {
+							/* Ignore delete errors */
+						});
+					statusMsg = null;
+				}
+
+				// Send Telegraph URL(s)
+				if (pageUrls.length === 1) {
+					await ctx.reply(`📄 Telegraph: ${pageUrls[0]}`);
+				} else {
+					const urlList = pageUrls
+						.map((url, i) => `${i + 1}. ${url}`)
+						.join("\n");
+					await ctx.reply(
+						`📄 Telegraph (${pageUrls.length} pages):\n${urlList}`,
+					);
+				}
+			} catch (telegraphError) {
+				console.error(
+					`Telegraph export failed for thread ${threadId}:`,
+					telegraphError,
+				);
+				// Non-fatal error, just log it
+				await ctx.reply(
+					"⚠️ Telegraph export failed, but markdown files were sent successfully.",
+				);
+			}
+			if (statusMsg) {
+				await ctx.api.deleteMessage(chatId, statusMsg.message_id);
+			}
 			return undefined;
 		} catch (error) {
 			console.error(`Error getting thread ${threadId}:`, error);
