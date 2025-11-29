@@ -20,7 +20,7 @@ export function generateThreadFilename(
 ): string {
 	if (title && title !== "无标题") {
 		const sanitized = sanitizeFilename(title);
-		return `${threadId} - ${sanitized}.md`;
+		return `${sanitized}.md`;
 	}
 	return `thread_${threadId}.md`;
 }
