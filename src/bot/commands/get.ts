@@ -1,5 +1,4 @@
-import { bot } from "../../bot/bot.ts";
-import { splitLongMessage } from "../../services/formatter.ts";
+import { InputFile } from "grammy";
 import { formatThreadAsMarkdown } from "../../services/markdown-formatter.ts";
 import type { CommandDefinition } from "../types.ts";
 
@@ -12,25 +11,15 @@ export const get: CommandDefinition = {
 			// Format thread as markdown
 			const markdown = await formatThreadAsMarkdown(threadId);
 
-			// Split into chunks if needed
-			const chunks = splitLongMessage(markdown);
+			// Create file from markdown content
+			const blob = new Blob([markdown], { type: "text/markdown" });
+			const file = new InputFile(blob, `thread_${threadId}.md`);
 
-			// Send first chunk as reply
-			await ctx.reply(chunks[0], {
-				parse_mode: "HTML",
-				link_preview_options: { is_disabled: true },
+			// Send as document
+			await ctx.replyWithDocument(file, {
+				caption: `Thread ${threadId} markdown export`,
 			});
 
-			// Send remaining chunks if any
-			for (let i = 1; i < chunks.length; i++) {
-				await bot.api.sendMessage(ctx.chat!.id, chunks[i], {
-					message_thread_id: ctx.message?.message_thread_id,
-					parse_mode: "HTML",
-					link_preview_options: { is_disabled: true },
-				});
-			}
-
-			// Return undefined to prevent automatic reply (we already sent messages)
 			return undefined;
 		} catch (error) {
 			console.error(`Error getting thread ${threadId}:`, error);
