@@ -20,24 +20,36 @@ export const get: CommandDefinition = {
 			// Send initial status message
 			statusMsg = await ctx.reply("📥 Fetching thread...");
 			lastUpdate = Date.now();
+			console.log(`📥 Started fetching thread ${threadId}`);
 
 			// Format thread as markdown with progress tracking
 			const { markdown, threadData } = await formatThreadAsMarkdown(
 				threadId,
 				(progress: ProgressInfo) => {
+					console.log(
+						`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
+					);
 					const now = Date.now();
 					// Update every 10 seconds
 					if (now - lastUpdate >= 10000 && statusMsg) {
+						console.log(
+							`Updating status message (${
+								now - lastUpdate
+							}ms since last update)`,
+						);
 						ctx.api
 							.editMessageText(
 								chatId,
 								statusMsg.message_id,
 								`📥 Fetching thread... Page ${progress.current}/${progress.total} (${progress.percentage}%)`,
 							)
-							.catch(() => {
-								/* Ignore edit errors */
+							.then(() => {
+								console.log("Status message updated successfully");
+								lastUpdate = now;
+							})
+							.catch((err) => {
+								console.error("Failed to update status message:", err);
 							});
-						lastUpdate = now;
 					}
 				},
 			);
