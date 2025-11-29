@@ -75,6 +75,7 @@ export const get: CommandDefinition = {
 						writer: [threadData.user_hash],
 						bindings: [],
 					};
+					formattedTitle = threadState.title;
 				} catch (e) {
 					console.error("Failed to fetch thread info for temp state:", e);
 					return "❌ Failed to fetch thread info. Does the thread exist?";
