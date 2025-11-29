@@ -129,16 +129,6 @@ export async function checkExistingThreads(): Promise<void> {
 		for (const [threadId, threadState] of Object.entries(allThreads)) {
 			try {
 				if (!(await shouldCheckThread(threadId, threadState))) {
-					const lastNewReplyAt =
-						threadState.lastNewReplyAt ?? threadState.lastCheck;
-					const daysSinceNewReply =
-						(Date.now() - new Date(lastNewReplyAt).getTime()) /
-						(1000 * 60 * 60 * 24);
-					console.log(
-						`⏭️  Skipping inactive thread ${threadId} (${Math.floor(
-							daysSinceNewReply,
-						)} days since new reply)`,
-					);
 					continue;
 				}
 
