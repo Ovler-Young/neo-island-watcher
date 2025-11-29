@@ -57,9 +57,9 @@ export async function shouldCheckThread(
 
 	if (msSinceNewReply > inactiveThreshold) {
 		return msSinceLastCheck >= config.inactiveCheckInterval;
+	} else {
+		return msSinceLastCheck >= config.monitoringInterval;
 	}
-
-	return true;
 }
 
 async function checkAllFeeds(): Promise<void> {
