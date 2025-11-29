@@ -174,7 +174,35 @@ export const get: CommandDefinition = {
 				}
 
 				console.log(`Starting Telegraph export for thread ${threadId}`);
-				const pageUrls = await exportToTelegraph(filteredMarkdown, title);
+				const pageUrls = await exportToTelegraph(
+					filteredMarkdown,
+					title,
+					"neo-island-watcher",
+					async (progress) => {
+						// Update status message with progress
+						if (statusMsg) {
+							const phaseText =
+								progress.phase === "uploading" ? "上传页面" : "刷新页码";
+							const availableText =
+								progress.availableUrls && progress.availableUrls.length > 0
+									? `\n\n可查看页面: ${progress.availableUrls
+											.map((url, i) => `[${i + 1}](${url})`)
+											.join(", ")}`
+									: "";
+
+							await ctx.api
+								.editMessageText(
+									chatId,
+									statusMsg.message_id,
+									`📤 创建 Telegraph 页面...\n${phaseText}: ${progress.current}/${progress.total}${availableText}`,
+									{ parse_mode: "Markdown" },
+								)
+								.catch((err) => {
+									console.error("Failed to update Telegraph progress:", err);
+								});
+						}
+					},
+				);
 				console.log(`Telegraph export complete: ${pageUrls.length} page(s)`);
 
 				// Delete status message before sending Telegraph URLs

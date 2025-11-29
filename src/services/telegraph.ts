@@ -4,6 +4,17 @@ import { type Node, parse, Telegraph } from "@dcdunkan/telegraph";
 export type { Node };
 
 /**
+ * Progress callback for Telegraph operations
+ */
+export type TelegraphProgressCallback = (update: {
+	phase: "uploading" | "refreshing";
+	current: number;
+	total: number;
+	pageUrl?: string;
+	availableUrls?: string[];
+}) => void | Promise<void>;
+
+/**
  * Calculate the byte size of content when serialized
  */
 function calculateByteSize(content: Node[]): number {
@@ -84,6 +95,7 @@ async function createPagesWithNavigation(
 	pages: Node[][],
 	baseTitle: string,
 	authorName: string,
+	onProgress?: TelegraphProgressCallback,
 ): Promise<string[]> {
 	const pageUrls: string[] = [];
 	const totalPages = pages.length;
@@ -105,6 +117,15 @@ async function createPagesWithNavigation(
 
 			pageUrls.push(page.url);
 			console.log(`Created page ${pageNumber}/${totalPages}: ${page.url}`);
+
+			// Report progress
+			await onProgress?.({
+				phase: "uploading",
+				current: pageNumber,
+				total: totalPages,
+				pageUrl: page.url,
+				availableUrls: [...pageUrls],
+			});
 
 			// Add delay to avoid rate limiting
 			if (i < totalPages - 1) {
@@ -164,6 +185,15 @@ async function createPagesWithNavigation(
 						`Updated page ${pageNumber}/${totalPages} with navigation`,
 					);
 
+					// Report progress
+					await onProgress?.({
+						phase: "refreshing",
+						current: pageNumber,
+						total: totalPages,
+						pageUrl: pageUrls[i],
+						availableUrls: [...pageUrls],
+					});
+
 					// Add delay to avoid rate limiting
 					if (i < totalPages - 1) {
 						await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -204,12 +234,14 @@ async function createPagesWithNavigation(
  * @param markdown - Markdown content to export
  * @param title - Page title
  * @param authorName - Author name (default: "neo-island-watcher")
+ * @param onProgress - Optional progress callback
  * @returns Array of Telegraph page URLs
  */
 export async function exportToTelegraph(
 	markdown: string,
 	title: string,
 	authorName: string = "neo-island-watcher",
+	onProgress?: TelegraphProgressCallback,
 ): Promise<string[]> {
 	// Create disposable Telegraph account
 	const telegraph = new Telegraph();
@@ -247,6 +279,7 @@ export async function exportToTelegraph(
 		pages,
 		title,
 		authorName,
+		onProgress,
 	);
 
 	return pageUrls;
