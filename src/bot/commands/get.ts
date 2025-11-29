@@ -30,13 +30,10 @@ export const get: CommandDefinition = {
 						`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
 					);
 					const now = Date.now();
-					// Update every 10 seconds
-					if (now - lastUpdate >= 10000 && statusMsg) {
-						console.log(
-							`Updating status message (${
-								now - lastUpdate
-							}ms since last update)`,
-						);
+					if (
+						(now - lastUpdate >= 10000 || progress.percentage === 100) &&
+						statusMsg
+					) {
 						ctx.api
 							.editMessageText(
 								chatId,
@@ -74,9 +71,7 @@ export const get: CommandDefinition = {
 			console.log(`Sending document file: ${filename}`);
 
 			// Send as document
-			await ctx.replyWithDocument(file, {
-				caption: `Thread ${threadId} markdown export`,
-			});
+			await ctx.replyWithDocument(file);
 
 			// Delete status message
 			if (statusMsg) {
