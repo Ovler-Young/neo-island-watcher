@@ -192,8 +192,8 @@ export const get: CommandDefinition = {
 					await ctx.reply(`📄 Telegraph: ${pageUrls[0]}`);
 				} else {
 					const urlList = pageUrls
-						.map((url, i) => `${i + 1}. ${url}`)
-						.join("\n");
+						.map((url, i) => `[${i + 1}](${url})`)
+						.join(", ");
 					await ctx.reply(
 						`📄 Telegraph (${pageUrls.length} pages):\n${urlList}`,
 					);
