@@ -46,7 +46,6 @@ export async function getCachedPage(
 
 		const content = await Deno.readTextFile(filePath);
 		const data = JSON.parse(content) as ThreadData;
-		console.log(`📂 Cache hit: thread ${threadId}, page ${page}`);
 		return data;
 	} catch (error) {
 		console.error(
