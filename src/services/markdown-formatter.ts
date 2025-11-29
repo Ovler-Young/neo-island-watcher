@@ -62,5 +62,5 @@ export async function formatThreadAsMarkdown(
 		}
 	}
 
-	return messages.join("\n---\n");
+	return messages.join("\n\n---\n");
 }
