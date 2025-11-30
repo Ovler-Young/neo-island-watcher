@@ -9,7 +9,7 @@ function processContentFast(content: string): string {
 	let processed = content;
 
 	// Decode HTML entities
-	processed = processed.replace(/&nbsp;/g, " ");
+	processed = processed.replace(/&nbsp;/g, "\u00A0"); // Use non-breaking space to preserve leading/trailing whitespace
 	processed = processed.replace(/&lt;/g, "<");
 	processed = processed.replace(/&gt;/g, ">");
 	processed = processed.replace(/&amp;/g, "&");
