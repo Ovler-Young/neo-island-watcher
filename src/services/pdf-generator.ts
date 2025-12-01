@@ -38,9 +38,6 @@ function processContent(content: string): string {
 	// Decode HTML entities
 	processed = decodeHtmlEntities(processed);
 
-	// Convert >>No. references to plain text
-	processed = processed.replace(/>>No\.(\d+)/g, ">>No.$1");
-
 	// Remove HTML tags
 	processed = processed.replace(/<font color="#789922">>/g, ">");
 	processed = processed.replace(/<\/font>/g, "");
@@ -143,6 +140,8 @@ export async function generateThreadPdf(
 	};
 
 	// Helper function to add image
+	// Note: Images are scaled to fit within maxWidth/maxHeight bounds
+	// This may cause some aspect ratio distortion for non-standard images
 	const addImage = (url: string, maxHeight: number = 60): void => {
 		const base64 = imageCache.get(url);
 		if (!base64) return;

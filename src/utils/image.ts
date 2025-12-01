@@ -10,11 +10,15 @@ export async function downloadImageAsBase64(
 
 		const arrayBuffer = await response.arrayBuffer();
 		const uint8Array = new Uint8Array(arrayBuffer);
-		let binary = "";
-		for (let i = 0; i < uint8Array.length; i++) {
-			binary += String.fromCharCode(uint8Array[i]);
+
+		// Use chunk-based approach for better performance with large images
+		const chunkSize = 8192;
+		const chunks: string[] = [];
+		for (let i = 0; i < uint8Array.length; i += chunkSize) {
+			const chunk = uint8Array.subarray(i, i + chunkSize);
+			chunks.push(String.fromCharCode(...chunk));
 		}
-		const base64 = btoa(binary);
+		const base64 = btoa(chunks.join(""));
 
 		const contentType = response.headers.get("content-type") || "image/jpeg";
 		return `data:${contentType};base64,${base64}`;
@@ -28,7 +32,14 @@ export async function downloadImageAsBase64(
  * Get image format from URL extension
  */
 export function getImageFormat(url: string): string {
-	const ext = url.split(".").pop()?.toLowerCase() || "jpeg";
+	// Parse URL to handle query parameters and fragments correctly
+	let pathname: string;
+	try {
+		pathname = new URL(url).pathname;
+	} catch {
+		pathname = url;
+	}
+	const ext = pathname.split(".").pop()?.toLowerCase() || "jpeg";
 	if (ext === "jpg") return "JPEG";
 	if (ext === "png") return "PNG";
 	if (ext === "gif") return "GIF";
