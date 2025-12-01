@@ -16,21 +16,27 @@ const FONT_SIZE_HEADER = 10;
 const FONT_SIZE_BODY = 9;
 
 /**
- * Decode HTML entities in content
+ * Decode HTML entities in content for plain text display.
+ * Note: This is for PDF text output only, not for HTML rendering.
+ * The order of replacements is important: &amp; must be decoded last
+ * to avoid double-unescaping issues.
  */
 function decodeHtmlEntities(content: string): string {
 	let processed = content;
 	processed = processed.replace(/&nbsp;/g, " ");
 	processed = processed.replace(/&lt;/g, "<");
 	processed = processed.replace(/&gt;/g, ">");
-	processed = processed.replace(/&amp;/g, "&");
 	processed = processed.replace(/&quot;/g, '"');
 	processed = processed.replace(/&#39;/g, "'");
+	// Decode &amp; last to avoid double-unescaping
+	processed = processed.replace(/&amp;/g, "&");
 	return processed;
 }
 
 /**
- * Process content for PDF display
+ * Process content for PDF plain text display.
+ * Note: PDF text rendering treats all content as plain text,
+ * so HTML tag removal is for visual cleanliness only.
  */
 function processContent(content: string): string {
 	let processed = content;
@@ -38,7 +44,7 @@ function processContent(content: string): string {
 	// Decode HTML entities
 	processed = decodeHtmlEntities(processed);
 
-	// Remove HTML tags
+	// Remove HTML tags for cleaner plain text output
 	processed = processed.replace(/<font color="#789922">>/g, ">");
 	processed = processed.replace(/<\/font>/g, "");
 	processed = processed.replace(/\[h\]([^[]+)\[\/h\]/g, "[$1]");
@@ -47,7 +53,8 @@ function processContent(content: string): string {
 	processed = processed.replace(/<small>/g, "");
 	processed = processed.replace(/<\/small>/g, "");
 	processed = processed.replace(/<br \/>/g, "\n");
-	processed = processed.replace(/<[^>]+>/g, "");
+	// Remove any remaining HTML tags
+	processed = processed.replace(/<[^>]*>/g, "");
 
 	// Clean up excessive newlines
 	processed = processed.replace(/\n{3,}/g, "\n\n");
