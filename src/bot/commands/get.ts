@@ -2,16 +2,20 @@ import { InputFile } from "grammy";
 import type { ProgressInfo } from "../../api/types.ts";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { formatThreadAsMarkdown } from "../../services/markdown-formatter.ts";
+import { generateThreadPdf } from "../../services/pdf-generator.ts";
 import { exportToTelegraph } from "../../services/telegraph.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { threadStates } from "../../storage/thread-state.ts";
-import { generateThreadFilename } from "../../utils/filename.ts";
+import {
+	generatePdfFilename,
+	generateThreadFilename,
+} from "../../utils/filename.ts";
 import { formatTitle } from "../../utils/title.ts";
 import type { CommandDefinition } from "../types.ts";
 
 export const get: CommandDefinition = {
 	name: "get",
-	description: "Get complete thread content as markdown",
+	description: "Get thread as markdown, PDF and Telegraph",
 	guards: [],
 	handler: async ({ ctx }) => {
 		let statusMsg: { message_id: number } | null = null;
@@ -162,6 +166,50 @@ export const get: CommandDefinition = {
 			}
 
 			console.log(`Documents sent successfully for thread ${threadId}`);
+
+			// Generate PDF with embedded images
+			try {
+				if (statusMsg) {
+					await ctx.api.editMessageText(
+						chatId,
+						statusMsg.message_id,
+						"📄 Generating PDF with images...",
+					);
+				}
+
+				console.log(`Starting PDF generation for thread ${threadId}`);
+				const pdfBuffer = await generateThreadPdf(
+					threadId,
+					threadState,
+					threadData,
+					formattedTitle,
+					async (progress) => {
+						if (statusMsg) {
+							const phaseText =
+								progress.phase === "downloading" ? "下载图片" : "渲染页面";
+							await ctx.api
+								.editMessageText(
+									chatId,
+									statusMsg.message_id,
+									`📄 生成 PDF...\n${phaseText}: ${progress.current}/${progress.total}`,
+								)
+								.catch((err) => {
+									console.error("Failed to update PDF progress:", err);
+								});
+						}
+					},
+				);
+
+				const pdfFilename = generatePdfFilename(threadId, title);
+				const pdfFile = new InputFile(pdfBuffer, pdfFilename);
+				await ctx.replyWithDocument(pdfFile);
+				console.log(`PDF sent successfully for thread ${threadId}`);
+			} catch (pdfError) {
+				console.error(`PDF generation failed for thread ${threadId}:`, pdfError);
+				await ctx.reply(
+					"⚠️ PDF generation failed, but markdown files were sent successfully.",
+				);
+			}
 
 			// Export to Telegraph
 			try {

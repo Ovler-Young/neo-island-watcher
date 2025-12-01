@@ -26,3 +26,15 @@ export function generateThreadFilename(
 	}
 	return `thread_${threadId}${suffix}.md`;
 }
+
+/**
+ * Generates a proper filename for a thread PDF export
+ * Uses thread title if available, otherwise just the ID
+ */
+export function generatePdfFilename(threadId: string, title: string): string {
+	if (title && title !== "无标题") {
+		const sanitized = sanitizeFilename(title);
+		return `${sanitized}.pdf`;
+	}
+	return `thread_${threadId}.pdf`;
+}
