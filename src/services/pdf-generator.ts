@@ -139,6 +139,8 @@ export async function convertMarkdownToPdf(
 			stderr: "piped",
 		});
 
+		console.log("Markdown is ready to be converted to PDF");
+
 		const process = command.spawn();
 
 		// Write markdown to stdin
@@ -147,7 +149,11 @@ export async function convertMarkdownToPdf(
 		await writer.write(encoder.encode(markdown));
 		await writer.close();
 
+		console.log("Markdown has been written to stdin");
+
 		const { success, stdout, stderr } = await process.output();
+
+		console.log("Pandoc conversion has been completed");
 
 		if (!success) {
 			const errorText = new TextDecoder().decode(stderr);
@@ -175,6 +181,8 @@ export async function generatePdf(
 	if (!(await isPandocAvailable())) {
 		console.log("Pandoc not available, skipping PDF generation");
 		return null;
+	} else {
+		console.log("Pandoc available, generating PDF");
 	}
 
 	// Download images and replace URLs with local paths
@@ -189,6 +197,8 @@ export async function generatePdf(
 		current: 1,
 		total: 1,
 	});
+
+	console.log("Markdown with local images is ready");
 
 	return await convertMarkdownToPdf(markdownWithLocalImages);
 }
