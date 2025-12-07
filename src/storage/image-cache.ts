@@ -1,6 +1,5 @@
-import { encodeBase64 } from "@std/encoding/base64";
 import { ensureDir } from "@std/fs";
-import { join } from "@std/path";
+import { join, resolve } from "@std/path";
 
 /**
  * Image cache service for storing downloaded images.
@@ -8,10 +7,6 @@ import { join } from "@std/path";
  */
 
 const CACHE_DIR = "data/image-cache";
-
-interface CachedImageInfo {
-	mimeType: string;
-}
 
 /**
  * Get the cache file path for a given image path.
@@ -22,13 +17,6 @@ function getCacheFilePath(imagePath: string): string {
 	// e.g., "/image/abc123.jpg" -> "image_abc123.jpg"
 	const sanitized = imagePath.replace(/^\//, "").replace(/\//g, "_");
 	return join(CACHE_DIR, sanitized);
-}
-
-/**
- * Get the metadata file path for a cached image.
- */
-function getMetaFilePath(imagePath: string): string {
-	return `${getCacheFilePath(imagePath)}.meta.json`;
 }
 
 /**
@@ -45,24 +33,16 @@ export async function hasImageInCache(imagePath: string): Promise<boolean> {
 }
 
 /**
- * Get a cached image as base64 data URI.
+ * Get the absolute path to a cached image file.
  * Returns null if not cached.
  */
-export async function getCachedImageAsBase64(
+export async function getCachedImagePath(
 	imagePath: string,
 ): Promise<string | null> {
 	const cacheFile = getCacheFilePath(imagePath);
-	const metaFile = getMetaFilePath(imagePath);
-
 	try {
-		const [imageData, metaData] = await Promise.all([
-			Deno.readFile(cacheFile),
-			Deno.readTextFile(metaFile),
-		]);
-
-		const meta: CachedImageInfo = JSON.parse(metaData);
-		const base64 = encodeBase64(imageData);
-		return `data:${meta.mimeType};base64,${base64}`;
+		await Deno.stat(cacheFile);
+		return resolve(cacheFile);
 	} catch {
 		return null;
 	}
@@ -70,35 +50,30 @@ export async function getCachedImageAsBase64(
 
 /**
  * Store an image in the cache.
+ * Returns the absolute path to the cached file.
  */
 export async function cacheImage(
 	imagePath: string,
 	data: Uint8Array,
-	mimeType: string,
-): Promise<void> {
+): Promise<string> {
 	await ensureDir(CACHE_DIR);
 
 	const cacheFile = getCacheFilePath(imagePath);
-	const metaFile = getMetaFilePath(imagePath);
+	await Deno.writeFile(cacheFile, data);
 
-	const meta: CachedImageInfo = { mimeType };
-
-	await Promise.all([
-		Deno.writeFile(cacheFile, data),
-		Deno.writeTextFile(metaFile, JSON.stringify(meta)),
-	]);
+	return resolve(cacheFile);
 }
 
 /**
- * Get image as base64 data URI, using cache if available.
- * Falls back to fetching if not cached.
+ * Ensure an image is cached and return its local file path.
+ * Downloads the image if not already cached.
  */
-export async function getImageAsBase64(
+export async function ensureImageCached(
 	imageUrl: string,
 	imagePath: string,
 ): Promise<string | null> {
 	// Try cache first
-	const cached = await getCachedImageAsBase64(imagePath);
+	const cached = await getCachedImagePath(imagePath);
 	if (cached) {
 		return cached;
 	}
@@ -111,15 +86,10 @@ export async function getImageAsBase64(
 			return null;
 		}
 
-		const contentType = response.headers.get("content-type") || "image/jpeg";
 		const data = new Uint8Array(await response.arrayBuffer());
 
-		// Cache the image
-		await cacheImage(imagePath, data, contentType);
-
-		// Return as base64 data URI
-		const base64 = encodeBase64(data);
-		return `data:${contentType};base64,${base64}`;
+		// Cache the image and return path
+		return await cacheImage(imagePath, data);
 	} catch (error) {
 		console.error(`Error fetching image ${imageUrl}:`, error);
 		return null;

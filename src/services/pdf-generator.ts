@@ -1,12 +1,12 @@
-import { getImageAsBase64 } from "../storage/image-cache.ts";
+import { ensureImageCached } from "../storage/image-cache.ts";
 
 /**
  * PDF generation service using pandoc.
- * Embeds images as base64 data URIs and converts markdown to PDF.
+ * Downloads images to local cache and uses file paths for pandoc.
  */
 
 export interface PdfProgress {
-	phase: "embedding" | "converting";
+	phase: "downloading" | "converting";
 	current: number;
 	total: number;
 }
@@ -64,10 +64,10 @@ function extractImageReferences(
 }
 
 /**
- * Embed all images in markdown as base64 data URIs.
+ * Download all images and replace URLs with local file paths.
  * Returns the modified markdown content.
  */
-export async function embedImagesAsBase64(
+export async function downloadAndReplaceImages(
 	markdown: string,
 	onProgress?: (progress: PdfProgress) => void,
 ): Promise<string> {
@@ -77,39 +77,39 @@ export async function embedImagesAsBase64(
 		return markdown;
 	}
 
-	// Fetch all images concurrently (with concurrency limit)
+	// Download all images concurrently (with concurrency limit)
 	const CONCURRENCY = 5;
-	const base64Map = new Map<string, string>();
+	const pathMap = new Map<string, string>();
 
 	for (let i = 0; i < images.length; i += CONCURRENCY) {
 		const batch = images.slice(i, i + CONCURRENCY);
 
 		onProgress?.({
-			phase: "embedding",
+			phase: "downloading",
 			current: Math.min(i + CONCURRENCY, images.length),
 			total: images.length,
 		});
 
 		const results = await Promise.all(
 			batch.map(async (img) => {
-				const base64 = await getImageAsBase64(img.url, img.path);
-				return { url: img.url, base64 };
+				const localPath = await ensureImageCached(img.url, img.path);
+				return { url: img.url, localPath };
 			}),
 		);
 
 		for (const result of results) {
-			if (result.base64) {
-				base64Map.set(result.url, result.base64);
+			if (result.localPath) {
+				pathMap.set(result.url, result.localPath);
 			}
 		}
 	}
 
-	// Replace all image URLs with base64 data URIs
+	// Replace all image URLs with local file paths
 	let result = markdown;
 	for (const img of images) {
-		const base64 = base64Map.get(img.url);
-		if (base64) {
-			result = result.replace(img.fullMatch, `![${img.alt}](${base64})`);
+		const localPath = pathMap.get(img.url);
+		if (localPath) {
+			result = result.replace(img.fullMatch, `![${img.alt}](${localPath})`);
 		}
 	}
 
@@ -164,7 +164,7 @@ export async function convertMarkdownToPdf(
 
 /**
  * Generate a PDF from markdown content.
- * Embeds images as base64 and converts to PDF using pandoc.
+ * Downloads images to local cache and converts to PDF using pandoc.
  * Returns null if pandoc is not available or conversion fails.
  */
 export async function generatePdf(
@@ -177,8 +177,11 @@ export async function generatePdf(
 		return null;
 	}
 
-	// Embed images as base64
-	const markdownWithImages = await embedImagesAsBase64(markdown, onProgress);
+	// Download images and replace URLs with local paths
+	const markdownWithLocalImages = await downloadAndReplaceImages(
+		markdown,
+		onProgress,
+	);
 
 	// Convert to PDF
 	onProgress?.({
@@ -187,5 +190,5 @@ export async function generatePdf(
 		total: 1,
 	});
 
-	return await convertMarkdownToPdf(markdownWithImages);
+	return await convertMarkdownToPdf(markdownWithLocalImages);
 }

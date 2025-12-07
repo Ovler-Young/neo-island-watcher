@@ -3,7 +3,6 @@
   "specifiers": {
     "jsr:@b-fuze/deno-dom@0.1.47": "0.1.47",
     "jsr:@dcdunkan/telegraph@2": "2.0.0",
-    "jsr:@std/encoding@1": "1.0.6",
     "jsr:@std/fs@^1.0.5": "1.0.19",
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "jsr:@std/internal@^1.0.9": "1.0.10",
@@ -30,9 +29,6 @@
         "npm:marked",
         "npm:sanitize-html"
       ]
-    },
-    "@std/encoding@1.0.6": {
-      "integrity": "ca87122c196e8831737d9547acf001766618e78cd8c33920776c7f5885546069"
     },
     "@std/fs@1.0.19": {
       "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
@@ -288,7 +284,6 @@
   "workspace": {
     "dependencies": [
       "jsr:@dcdunkan/telegraph@2",
-      "jsr:@std/encoding@1",
       "jsr:@std/fs@^1.0.5",
       "jsr:@std/json@^1.0.1",
       "jsr:@std/path@^1.0.8",
