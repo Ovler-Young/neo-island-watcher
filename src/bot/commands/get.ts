@@ -1,3 +1,5 @@
+import { ensureDir } from "@std/fs";
+import { join } from "@std/path";
 import { InputFile } from "grammy";
 import type { ProgressInfo } from "../../api/types.ts";
 import { xdnmbClient } from "../../api/xdnmb.ts";
@@ -8,6 +10,36 @@ import { groupBindings } from "../../storage/group-bindings.ts";
 import { threadStates } from "../../storage/thread-state.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
 import { formatTitle } from "../../utils/title.ts";
+
+const TEMP_DIR = "data/temp";
+
+/**
+ * Save buffer to temp file and return the file path.
+ * This is used for large files to avoid multipart form issues.
+ */
+async function saveTempFile(
+	buffer: Uint8Array,
+	filename: string,
+): Promise<string> {
+	await ensureDir(TEMP_DIR);
+	const filePath = join(TEMP_DIR, filename);
+	await Deno.writeFile(filePath, buffer);
+	console.log(`Saved temp file: ${filePath} (${buffer.length} bytes)`);
+	return filePath;
+}
+
+/**
+ * Clean up temp file after sending.
+ */
+async function cleanupTempFile(filePath: string): Promise<void> {
+	try {
+		await Deno.remove(filePath);
+		console.log(`Cleaned up temp file: ${filePath}`);
+	} catch {
+		// Ignore cleanup errors
+	}
+}
+
 import type { CommandDefinition } from "../types.ts";
 
 export const get: CommandDefinition = {
@@ -166,11 +198,19 @@ export const get: CommandDefinition = {
 					"filtered",
 					"pdf",
 				);
-				const filteredPdfFile = new InputFile(
+				// Save to temp file to avoid multipart form issues with large buffers
+				const tempPath = await saveTempFile(
 					filteredPdfBuffer,
 					filteredPdfFilename,
 				);
-				await ctx.replyWithDocument(filteredPdfFile);
+				try {
+					const filteredPdfFile = new InputFile(tempPath);
+					await ctx.replyWithDocument(filteredPdfFile, {
+						caption: filteredPdfFilename,
+					});
+				} finally {
+					await cleanupTempFile(tempPath);
+				}
 			}
 
 			if (!threadState.writer.includes("*")) {
@@ -226,8 +266,16 @@ export const get: CommandDefinition = {
 						"all",
 						"pdf",
 					);
-					const allPdfFile = new InputFile(allPdfBuffer, allPdfFilename);
-					await ctx.replyWithDocument(allPdfFile);
+					// Save to temp file to avoid multipart form issues with large buffers
+					const tempPath = await saveTempFile(allPdfBuffer, allPdfFilename);
+					try {
+						const allPdfFile = new InputFile(tempPath);
+						await ctx.replyWithDocument(allPdfFile, {
+							caption: allPdfFilename,
+						});
+					} finally {
+						await cleanupTempFile(tempPath);
+					}
 				}
 			}
 
