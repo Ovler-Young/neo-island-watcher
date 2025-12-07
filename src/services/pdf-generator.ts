@@ -168,13 +168,25 @@ export async function convertMarkdownToPdf(
 
 		const process = command.spawn();
 
-		// Write markdown to stdin
+		// Write markdown to stdin with error handling
 		const encoder = new TextEncoder();
-		const writer = process.stdin.getWriter();
-		await writer.write(encoder.encode(markdown));
-		await writer.close();
-
-		console.log("Markdown has been written to stdin");
+		try {
+			const writer = process.stdin.getWriter();
+			await writer.write(encoder.encode(markdown));
+			await writer.close();
+			console.log("Markdown has been written to stdin");
+		} catch (stdinError) {
+			console.error("Failed to write to pandoc stdin:", stdinError);
+			// Process might have already exited, try to get the error
+			try {
+				const { stderr } = await process.output();
+				const errorText = new TextDecoder().decode(stderr);
+				console.error("Pandoc stderr:", errorText);
+			} catch {
+				// Ignore
+			}
+			return null;
+		}
 
 		const { success, stdout, stderr } = await process.output();
 
