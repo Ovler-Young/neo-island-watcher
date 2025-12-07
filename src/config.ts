@@ -1,5 +1,6 @@
 interface Config {
 	telegramBotToken: string;
+	telegramApiRoot: string;
 	xdnmbApiBase: string;
 	xdnmbFrontendBase: string;
 	xdnmbImageBase: string;
@@ -43,6 +44,10 @@ function getOptionalEnv(key: string, defaultValue: string): string {
 
 export const config: Config = {
 	telegramBotToken: getRequiredEnv("TELEGRAM_BOT_TOKEN"),
+	telegramApiRoot: getOptionalEnv(
+		"TELEGRAM_API_ROOT",
+		"https://api.telegram.org",
+	),
 	xdnmbApiBase: getOptionalEnv("XDNMB_API_BASE", "https://api.nmb.best"),
 	xdnmbFrontendBase: getOptionalEnv(
 		"XDNMB_FRONTEND_BASE",
