@@ -18,11 +18,12 @@ export function generateThreadFilename(
 	threadId: string,
 	title: string,
 	variant?: "filtered" | "all",
+	extension = "md",
 ): string {
 	const suffix = variant === "all" ? "_all" : "";
 	if (title && title !== "无标题") {
 		const sanitized = sanitizeFilename(title);
-		return `${sanitized}${suffix}.md`;
+		return `${sanitized}${suffix}.${extension}`;
 	}
-	return `thread_${threadId}${suffix}.md`;
+	return `thread_${threadId}${suffix}.${extension}`;
 }

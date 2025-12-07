@@ -2,6 +2,7 @@ import { InputFile } from "grammy";
 import type { ProgressInfo } from "../../api/types.ts";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { formatThreadAsMarkdown } from "../../services/markdown-formatter.ts";
+import { generatePdf } from "../../services/pdf-generator.ts";
 import { exportToTelegraph } from "../../services/telegraph.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { threadStates } from "../../storage/thread-state.ts";
@@ -136,6 +137,29 @@ export const get: CommandDefinition = {
 			const filteredFile = new InputFile(filteredBuffer, filteredFilename);
 			await ctx.replyWithDocument(filteredFile);
 
+			// Generate and send filtered PDF
+			if (statusMsg) {
+				await ctx.api.editMessageText(
+					chatId,
+					statusMsg.message_id,
+					"📄 Generating PDF (filtered)...",
+				);
+			}
+			const filteredPdfBuffer = await generatePdf(filteredMarkdown);
+			if (filteredPdfBuffer) {
+				const filteredPdfFilename = generateThreadFilename(
+					threadId,
+					title,
+					"filtered",
+					"pdf",
+				);
+				const filteredPdfFile = new InputFile(
+					filteredPdfBuffer,
+					filteredPdfFilename,
+				);
+				await ctx.replyWithDocument(filteredPdfFile);
+			}
+
 			if (!threadState.writer.includes("*")) {
 				threadState.writer.push("*");
 
@@ -159,6 +183,26 @@ export const get: CommandDefinition = {
 				);
 
 				await ctx.replyWithDocument(allFile);
+
+				// Generate and send all PDF
+				if (statusMsg) {
+					await ctx.api.editMessageText(
+						chatId,
+						statusMsg.message_id,
+						"📄 Generating PDF (all)...",
+					);
+				}
+				const allPdfBuffer = await generatePdf(allMarkdown);
+				if (allPdfBuffer) {
+					const allPdfFilename = generateThreadFilename(
+						threadId,
+						title,
+						"all",
+						"pdf",
+					);
+					const allPdfFile = new InputFile(allPdfBuffer, allPdfFilename);
+					await ctx.replyWithDocument(allPdfFile);
+				}
 			}
 
 			console.log(`Documents sent successfully for thread ${threadId}`);
