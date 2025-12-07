@@ -94,7 +94,9 @@ export async function downloadAndReplaceImages(
 
 		const results = await Promise.all(
 			batch.map(async (img) => {
+				console.log(`Downloading image ${img.url}`);
 				const localPath = await ensureImageCached(img.url, img.path);
+				console.log(`Downloaded image ${img.url}`);
 				return { url: img.url, localPath };
 			}),
 		);
