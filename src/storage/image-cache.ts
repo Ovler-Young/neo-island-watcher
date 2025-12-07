@@ -101,27 +101,16 @@ export async function ensureImageCached(
 	imageUrl: string,
 	imagePath: string,
 ): Promise<string | null> {
-	console.log(`ensureImageCached called for ${imagePath}`);
-
 	// Try cache first
 	const cached = await getCachedImagePath(imagePath);
 	if (cached) {
-		console.log(`Image ${imagePath} found in cache: ${cached}`);
 		return cached;
 	}
-
-	console.log(`Image ${imagePath} not in cache, fetching from ${imageUrl}`);
 
 	// Fetch with retry logic
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		try {
-			console.log(
-				`Starting fetch for ${imageUrl} (attempt ${attempt}/${MAX_RETRIES})`,
-			);
 			const response = await fetchWithTimeout(imageUrl, FETCH_TIMEOUT_MS);
-			console.log(
-				`Fetch completed for ${imageUrl}, status: ${response.status}`,
-			);
 
 			if (!response.ok) {
 				console.error(
@@ -135,14 +124,10 @@ export async function ensureImageCached(
 				return null;
 			}
 
-			console.log(`Reading response body for ${imageUrl}`);
 			const data = new Uint8Array(await response.arrayBuffer());
-			console.log(`Got ${data.length} bytes for ${imageUrl}`);
 
 			// Cache the image and return path
-			console.log(`Caching image ${imagePath}`);
 			const result = await cacheImage(imagePath, data);
-			console.log(`Cached image ${imagePath} to ${result}`);
 			return result;
 		} catch (error) {
 			const isTimeout =

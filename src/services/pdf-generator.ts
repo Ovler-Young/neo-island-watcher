@@ -106,10 +106,8 @@ export async function downloadAndReplaceImages(
 
 		const results = await Promise.all(
 			batch.map(async (img) => {
-				console.log(`Downloading image ${img.url}`);
 				try {
 					const localPath = await ensureImageCached(img.url, img.path);
-					console.log(`Downloaded image ${img.url} -> ${localPath}`);
 					return { url: img.url, localPath };
 				} catch (error) {
 					console.error(`Error downloading image ${img.url}:`, error);
