@@ -145,7 +145,20 @@ export const get: CommandDefinition = {
 					"📄 Generating PDF (filtered)...",
 				);
 			}
-			const filteredPdfBuffer = await generatePdf(filteredMarkdown);
+			const filteredPdfBuffer = await generatePdf(
+				filteredMarkdown,
+				async (progress) => {
+					if (statusMsg) {
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片: ${progress.current}/${progress.total}`
+								: "📄 转换中...";
+						await ctx.api
+							.editMessageText(chatId, statusMsg.message_id, phaseText)
+							.catch(() => {});
+					}
+				},
+			);
 			if (filteredPdfBuffer) {
 				const filteredPdfFilename = generateThreadFilename(
 					threadId,
@@ -192,7 +205,20 @@ export const get: CommandDefinition = {
 						"📄 Generating PDF (all)...",
 					);
 				}
-				const allPdfBuffer = await generatePdf(allMarkdown);
+				const allPdfBuffer = await generatePdf(
+					allMarkdown,
+					async (progress) => {
+						if (statusMsg) {
+							const phaseText =
+								progress.phase === "downloading"
+									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+									: "📄 转换中...";
+							await ctx.api
+								.editMessageText(chatId, statusMsg.message_id, phaseText)
+								.catch(() => {});
+						}
+					},
+				);
 				if (allPdfBuffer) {
 					const allPdfFilename = generateThreadFilename(
 						threadId,
