@@ -73,6 +73,8 @@ export async function downloadAndReplaceImages(
 ): Promise<string> {
 	const images = extractImageReferences(markdown);
 
+	console.log(`Found ${images.length} images in markdown`);
+
 	if (images.length === 0) {
 		return markdown;
 	}
@@ -97,12 +99,16 @@ export async function downloadAndReplaceImages(
 			}),
 		);
 
+		console.log(`Downloaded ${results.length} images`);
+
 		for (const result of results) {
 			if (result.localPath) {
 				pathMap.set(result.url, result.localPath);
 			}
 		}
 	}
+
+	console.log(`Downloaded ${pathMap.size} images`);
 
 	// Replace all image URLs with local file paths
 	let result = markdown;
