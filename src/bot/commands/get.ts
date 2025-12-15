@@ -5,6 +5,7 @@ import type { ProgressInfo } from "../../api/types.ts";
 import { xdnmbClient } from "../../api/xdnmb.ts";
 import { formatThreadAsMarkdown } from "../../services/markdown-formatter.ts";
 import { generatePdf } from "../../services/pdf-generator.ts";
+import { generateEpub } from "../../services/epub-generator.ts";
 import { exportToTelegraph } from "../../services/telegraph.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { threadStates } from "../../storage/thread-state.ts";
@@ -213,6 +214,50 @@ export const get: CommandDefinition = {
 				}
 			}
 
+			// Generate and send filtered EPUB
+			if (statusMsg) {
+				await ctx.api.editMessageText(
+					chatId,
+					statusMsg.message_id,
+					"📚 Generating EPUB (filtered)...",
+				);
+			}
+			const filteredEpubBuffer = await generateEpub(
+				filteredMarkdown,
+				async (progress) => {
+					if (statusMsg) {
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片: ${progress.current}/${progress.total}`
+								: "📚 转换中...";
+						await ctx.api
+							.editMessageText(chatId, statusMsg.message_id, phaseText)
+							.catch(() => {});
+					}
+				},
+			);
+			if (filteredEpubBuffer) {
+				const filteredEpubFilename = generateThreadFilename(
+					threadId,
+					title,
+					"filtered",
+					"epub",
+				);
+				// Save to temp file to avoid multipart form issues with large buffers
+				const tempPath = await saveTempFile(
+					filteredEpubBuffer,
+					filteredEpubFilename,
+				);
+				try {
+					const filteredEpubFile = new InputFile(tempPath);
+					await ctx.replyWithDocument(filteredEpubFile, {
+						caption: filteredEpubFilename,
+					});
+				} finally {
+					await cleanupTempFile(tempPath);
+				}
+			}
+
 			if (!threadState.writer.includes("*")) {
 				threadState.writer.push("*");
 
@@ -272,6 +317,47 @@ export const get: CommandDefinition = {
 						const allPdfFile = new InputFile(tempPath);
 						await ctx.replyWithDocument(allPdfFile, {
 							caption: allPdfFilename,
+						});
+					} finally {
+						await cleanupTempFile(tempPath);
+					}
+				}
+
+				// Generate and send all EPUB
+				if (statusMsg) {
+					await ctx.api.editMessageText(
+						chatId,
+						statusMsg.message_id,
+						"📚 Generating EPUB (all)...",
+					);
+				}
+				const allEpubBuffer = await generateEpub(
+					allMarkdown,
+					async (progress) => {
+						if (statusMsg) {
+							const phaseText =
+								progress.phase === "downloading"
+									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+									: "📚 转换中...";
+							await ctx.api
+								.editMessageText(chatId, statusMsg.message_id, phaseText)
+								.catch(() => {});
+						}
+					},
+				);
+				if (allEpubBuffer) {
+					const allEpubFilename = generateThreadFilename(
+						threadId,
+						title,
+						"all",
+						"epub",
+					);
+					// Save to temp file to avoid multipart form issues with large buffers
+					const tempPath = await saveTempFile(allEpubBuffer, allEpubFilename);
+					try {
+						const allEpubFile = new InputFile(tempPath);
+						await ctx.replyWithDocument(allEpubFile, {
+							caption: allEpubFilename,
 						});
 					} finally {
 						await cleanupTempFile(tempPath);
