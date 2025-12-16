@@ -30,6 +30,7 @@ export const epub: CommandDefinition = {
 			// Generate Filtered EPUB
 			const filteredEpubBuffer = await generateEpub(
 				filteredMarkdown,
+				title,
 				async (progress) => {
 					if (statusMsg) {
 						const phaseText =
@@ -65,6 +66,7 @@ export const epub: CommandDefinition = {
 
 				const allEpubBuffer = await generateEpub(
 					allMarkdown,
+					title,
 					async (progress) => {
 						if (statusMsg) {
 							const phaseText =

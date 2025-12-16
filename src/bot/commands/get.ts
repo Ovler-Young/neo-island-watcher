@@ -63,6 +63,7 @@ export const get: CommandDefinition = {
 			// Filtered PDF
 			const filteredPdfBuffer = await generatePdf(
 				filteredMarkdown,
+				title,
 				async (progress) => {
 					if (statusMsg) {
 						const phaseText =
@@ -97,6 +98,7 @@ export const get: CommandDefinition = {
 				}
 				const allPdfBuffer = await generatePdf(
 					allMarkdown,
+					title,
 					async (progress) => {
 						if (statusMsg) {
 							const phaseText =
@@ -132,6 +134,7 @@ export const get: CommandDefinition = {
 			// Filtered EPUB
 			const filteredEpubBuffer = await generateEpub(
 				filteredMarkdown,
+				title,
 				async (progress) => {
 					if (statusMsg) {
 						const phaseText =
@@ -166,6 +169,7 @@ export const get: CommandDefinition = {
 				}
 				const allEpubBuffer = await generateEpub(
 					allMarkdown,
+					title,
 					async (progress) => {
 						if (statusMsg) {
 							const phaseText =

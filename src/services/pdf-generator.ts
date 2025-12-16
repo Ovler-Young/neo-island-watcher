@@ -155,6 +155,7 @@ export async function downloadAndReplaceImages(
  */
 export async function convertMarkdownToPdf(
 	markdown: string,
+	title?: string,
 ): Promise<Uint8Array | null> {
 	try {
 		const command = new Deno.Command("pandoc", {
@@ -166,6 +167,8 @@ export async function convertMarkdownToPdf(
 				"--pdf-engine=typst",
 				"-V",
 				"geometry:margin=1in",
+				"-V",
+				`title=${title || "Thread Export"}`,
 			],
 			stdin: "piped",
 			stdout: "piped",
@@ -220,6 +223,7 @@ export async function convertMarkdownToPdf(
  */
 export async function generatePdf(
 	markdown: string,
+	title: string,
 	onProgress?: (progress: PdfProgress) => void,
 ): Promise<Uint8Array | null> {
 	// Check if pandoc is available
@@ -245,5 +249,5 @@ export async function generatePdf(
 
 	console.log("Markdown with local images is ready");
 
-	return await convertMarkdownToPdf(markdownWithLocalImages);
+	return await convertMarkdownToPdf(markdownWithLocalImages, title);
 }

@@ -30,6 +30,7 @@ export const pdf: CommandDefinition = {
 			// Generate Filtered PDF
 			const filteredPdfBuffer = await generatePdf(
 				filteredMarkdown,
+				title,
 				async (progress) => {
 					if (statusMsg) {
 						const phaseText =
@@ -65,6 +66,7 @@ export const pdf: CommandDefinition = {
 
 				const allPdfBuffer = await generatePdf(
 					allMarkdown,
+					title,
 					async (progress) => {
 						if (statusMsg) {
 							const phaseText =

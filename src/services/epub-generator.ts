@@ -12,6 +12,7 @@ export type EpubProgress = PdfProgress;
  */
 export async function convertMarkdownToEpub(
 	markdown: string,
+	title?: string,
 ): Promise<Uint8Array | null> {
 	try {
 		const command = new Deno.Command("pandoc", {
@@ -21,7 +22,7 @@ export async function convertMarkdownToEpub(
 				"-t",
 				"epub3",
 				"--metadata",
-				"title=Thread Export", // Default title, pandoc warns if missing
+				`title=${title || "Thread Export"}`,
 			],
 			stdin: "piped",
 			stdout: "piped",
@@ -66,6 +67,7 @@ export async function convertMarkdownToEpub(
  */
 export async function generateEpub(
 	markdown: string,
+	title: string,
 	onProgress?: (progress: EpubProgress) => void,
 ): Promise<Uint8Array | null> {
 	// Check if pandoc is available
@@ -95,5 +97,5 @@ export async function generateEpub(
 		total: 1,
 	});
 
-	return await convertMarkdownToEpub(markdownWithLocalImages);
+	return await convertMarkdownToEpub(markdownWithLocalImages, title);
 }
