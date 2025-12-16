@@ -48,7 +48,7 @@ export async function sendDocument(
 		}
 
 		let lastError: unknown;
-		for (let attempt = 1; attempt <= 3; attempt++) {
+		for (let attempt = 1; attempt <= 5; attempt++) {
 			try {
 				const fileHandle = await Deno.open(tempPath);
 				const inputFile = new InputFile(fileHandle, filename);
@@ -59,11 +59,7 @@ export async function sendDocument(
 				return; // Success, exit function
 			} catch (error) {
 				lastError = error;
-				console.error(`Send document failed (attempt ${attempt}/3):`, error);
-				// Wait briefly before retry
-				if (attempt < 3) {
-					await new Promise((resolve) => setTimeout(resolve, 2000));
-				}
+				console.error(`Send document failed (attempt ${attempt}/5):`, error);
 			}
 		}
 		throw lastError; // Re-throw last error if all attempts fail
