@@ -42,11 +42,30 @@ export async function sendDocument(
 ) {
 	const tempPath = await saveTempFile(buffer, filename);
 	try {
-		const fileHandle = await Deno.open(tempPath);
-		const inputFile = new InputFile(fileHandle, filename);
-		await ctx.replyWithDocument(inputFile, {
-			caption: caption || filename,
-		});
+		const chatId = ctx.chat?.id;
+		if (!chatId) {
+			throw new Error("No chat ID found in context");
+		}
+
+		let lastError: unknown;
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			try {
+				const fileHandle = await Deno.open(tempPath);
+				const inputFile = new InputFile(fileHandle, filename);
+				await ctx.api.sendDocument(chatId, inputFile, {
+					caption: caption || filename,
+				});
+				return; // Success, exit function
+			} catch (error) {
+				lastError = error;
+				console.error(`Send document failed (attempt ${attempt}/3):`, error);
+				// Wait briefly before retry
+				if (attempt < 3) {
+					await new Promise((resolve) => setTimeout(resolve, 2000));
+				}
+			}
+		}
+		throw lastError; // Re-throw last error if all attempts fail
 	} finally {
 		await cleanupTempFile(tempPath);
 	}
