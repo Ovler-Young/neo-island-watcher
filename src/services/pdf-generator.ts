@@ -102,8 +102,6 @@ export async function downloadAndReplaceImages(
 			total: images.length,
 		});
 
-		console.log(`Batch URLs: ${batch.map((img) => img.url).join(", ")}`);
-
 		const results = await Promise.all(
 			batch.map(async (img) => {
 				try {
@@ -116,16 +114,12 @@ export async function downloadAndReplaceImages(
 			}),
 		);
 
-		console.log(`Downloaded ${results.length} images`);
-
 		for (const result of results) {
 			if (result.localPath) {
 				pathMap.set(result.url, result.localPath);
 			}
 		}
 	}
-
-	console.log(`Downloaded ${pathMap.size} images`);
 
 	// Replace all image URLs with local file paths
 	let result = markdown;
