@@ -1,4 +1,7 @@
-import { ensureImageCached } from "../storage/image-cache.ts";
+import {
+	ensureImageCached,
+	type ImageCacheOptions,
+} from "../storage/image-cache.ts";
 
 /**
  * PDF generation service using pandoc.
@@ -70,6 +73,7 @@ function extractImageReferences(
 export async function downloadAndReplaceImages(
 	markdown: string,
 	onProgress?: (progress: PdfProgress) => void,
+	imageOptions?: ImageCacheOptions,
 ): Promise<string> {
 	const images = extractImageReferences(markdown);
 
@@ -105,7 +109,11 @@ export async function downloadAndReplaceImages(
 		const results = await Promise.all(
 			batch.map(async (img) => {
 				try {
-					const localPath = await ensureImageCached(img.url, img.path);
+					const localPath = await ensureImageCached(
+						img.url,
+						img.path,
+						imageOptions,
+					);
 					return { url: img.url, localPath };
 				} catch (error) {
 					console.error(`Error downloading image ${img.url}:`, error);

@@ -79,6 +79,12 @@ export async function generateEpub(
 	const markdownWithLocalImages = await downloadAndReplaceImages(
 		markdown,
 		onProgress,
+		{
+			// Fail fast for EPUB images - if we can't get them quickly,
+			// we'll just fall back to the remote URL (which is what returning null does)
+			retries: 1,
+			timeoutMs: 5000,
+		},
 	);
 
 	// Convert to EPUB

@@ -7,9 +7,15 @@ import { join, resolve } from "@std/path";
  */
 
 const CACHE_DIR = "data/image-cache";
-const FETCH_TIMEOUT_MS = 10000; // 10 seconds timeout
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000; // 2 seconds between retries
+const DEFAULT_FETCH_TIMEOUT_MS = 10000;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY_MS = 2000;
+
+export interface ImageCacheOptions {
+	timeoutMs?: number;
+	retries?: number;
+	retryDelayMs?: number;
+}
 
 /**
  * Get the cache file path for a given image path.
@@ -68,18 +74,26 @@ export async function cacheImage(
 }
 
 /**
- * Fetch with timeout support.
+ * Fetch and read the response body with timeout support.
+ * The timeout applies to the ENTIRE operation (headers + body).
  */
-async function fetchWithTimeout(
+async function fetchAndReadWithTimeout(
 	url: string,
 	timeoutMs: number,
-): Promise<Response> {
+): Promise<{ ok: boolean; status: number; data?: Uint8Array }> {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
 	try {
 		const response = await fetch(url, { signal: controller.signal });
-		return response;
+
+		if (!response.ok) {
+			return { ok: false, status: response.status };
+		}
+
+		// This await is also protected by the timeout signal
+		const buffer = await response.arrayBuffer();
+		return { ok: true, status: response.status, data: new Uint8Array(buffer) };
 	} finally {
 		clearTimeout(timeoutId);
 	}
@@ -100,6 +114,7 @@ function sleep(ms: number): Promise<void> {
 export async function ensureImageCached(
 	imageUrl: string,
 	imagePath: string,
+	options: ImageCacheOptions = {},
 ): Promise<string | null> {
 	// Try cache first
 	const cached = await getCachedImagePath(imagePath);
@@ -107,43 +122,46 @@ export async function ensureImageCached(
 		return cached;
 	}
 
-	// Fetch with retry logic
-	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-		try {
-			const response = await fetchWithTimeout(imageUrl, FETCH_TIMEOUT_MS);
+	const timeoutMs = options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+	const maxRetries = options.retries ?? DEFAULT_MAX_RETRIES;
+	const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 
-			if (!response.ok) {
-				console.error(
-					`Failed to fetch image: ${imageUrl} - ${response.status}`,
-				);
-				if (attempt < MAX_RETRIES) {
-					console.log(`Retrying in ${RETRY_DELAY_MS}ms...`);
-					await sleep(RETRY_DELAY_MS);
+	// Fetch with retry logic
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		try {
+			const result = await fetchAndReadWithTimeout(imageUrl, timeoutMs);
+
+			if (!result.ok) {
+				console.error(`Failed to fetch image: ${imageUrl} - ${result.status}`);
+				if (attempt < maxRetries) {
+					// Only logretry if we are actually going to retry
+					console.log(`Retrying in ${retryDelayMs}ms...`);
+					await sleep(retryDelayMs);
 					continue;
 				}
-				return null;
+				// If we are out of retries, we return null below
+				break;
 			}
 
-			const data = new Uint8Array(await response.arrayBuffer());
-
-			// Cache the image and return path
-			const result = await cacheImage(imagePath, data);
-			return result;
+			// We have data!
+			if (result.data) {
+				return await cacheImage(imagePath, result.data);
+			}
 		} catch (error) {
 			const isTimeout =
 				error instanceof DOMException && error.name === "AbortError";
 			const errorType = isTimeout ? "timeout" : "error";
 			console.error(
-				`Fetch ${errorType} for ${imageUrl} (attempt ${attempt}/${MAX_RETRIES}):`,
+				`Fetch ${errorType} for ${imageUrl} (attempt ${attempt}/${maxRetries}):`,
 				error,
 			);
 
-			if (attempt < MAX_RETRIES) {
-				console.log(`Retrying in ${RETRY_DELAY_MS}ms...`);
-				await sleep(RETRY_DELAY_MS);
+			if (attempt < maxRetries) {
+				console.log(`Retrying in ${retryDelayMs}ms...`);
+				await sleep(retryDelayMs);
 			} else {
 				console.error(
-					`All ${MAX_RETRIES} attempts failed for ${imageUrl}, giving up`,
+					`All ${maxRetries} attempts failed for ${imageUrl}, giving up`,
 				);
 				return null;
 			}
