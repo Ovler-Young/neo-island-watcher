@@ -206,7 +206,7 @@ export const get: CommandDefinition = {
 				try {
 					const fileHandle = await Deno.open(tempPath);
 					const filteredPdfFile = new InputFile(
-						fileHandle,
+						fileHandle.readable,
 						filteredPdfFilename,
 					);
 					await ctx.replyWithDocument(filteredPdfFile, {
@@ -274,7 +274,10 @@ export const get: CommandDefinition = {
 					const tempPath = await saveTempFile(allPdfBuffer, allPdfFilename);
 					try {
 						const fileHandle = await Deno.open(tempPath);
-						const allPdfFile = new InputFile(fileHandle, allPdfFilename);
+						const allPdfFile = new InputFile(
+							fileHandle.readable,
+							allPdfFilename,
+						);
 						await ctx.replyWithDocument(allPdfFile, {
 							caption: allPdfFilename,
 						});
