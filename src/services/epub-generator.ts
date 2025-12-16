@@ -84,6 +84,7 @@ export async function generateEpub(
 			// we'll just fall back to the remote URL (which is what returning null does)
 			retries: 1,
 			timeoutMs: 5000,
+			fallbackToLink: true,
 		},
 	);
 

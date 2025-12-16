@@ -73,7 +73,7 @@ function extractImageReferences(
 export async function downloadAndReplaceImages(
 	markdown: string,
 	onProgress?: (progress: PdfProgress) => void,
-	imageOptions?: ImageCacheOptions,
+	imageOptions?: ImageCacheOptions & { fallbackToLink?: boolean },
 ): Promise<string> {
 	const images = extractImageReferences(markdown);
 
@@ -135,6 +135,14 @@ export async function downloadAndReplaceImages(
 		const localPath = pathMap.get(img.url);
 		if (localPath) {
 			result = result.replace(img.fullMatch, `![${img.alt}](${localPath})`);
+		} else if (imageOptions?.fallbackToLink) {
+			// If download failed and fallback is enabled, tell pandoc to use the external URL directly
+			// ![alt](url) -> ![alt](url){external=1}
+			// This prevents pandoc from trying (and failing) to fetch the remote image during generation
+			result = result.replace(
+				img.fullMatch,
+				`![${img.alt}](${img.url}){external=1}`,
+			);
 		}
 	}
 
