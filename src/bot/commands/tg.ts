@@ -1,6 +1,7 @@
 import { exportToTelegraph } from "../../services/telegraph.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
+import { createStatusUpdater } from "./common/status-updater.ts";
 
 export const tg: CommandDefinition = {
 	name: "tg",
@@ -14,51 +15,33 @@ export const tg: CommandDefinition = {
 		const chatId = ctx.chat?.id;
 		if (!chatId) return undefined;
 
+		const updater = createStatusUpdater(ctx.api, chatId, statusMsg);
+
 		try {
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📤 Creating Telegraph pages...",
-				);
-			}
+			await updater?.forceUpdate("📤 Creating Telegraph pages...");
 
 			const pageUrls = await exportToTelegraph(
 				filteredMarkdown,
 				title,
 				"neo-island-watcher",
 				async (progress) => {
-					// Update status message with progress
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "uploading" ? "上传页面" : "刷新页码";
-						const availableText =
-							progress.availableUrls && progress.availableUrls.length > 0
-								? `\n\n可查看页面: ${progress.availableUrls
-										.map((url, i) => `[${i + 1}](${url})`)
-										.join(", ")}`
-								: "";
-
-						await ctx.api
-							.editMessageText(
-								chatId,
-								statusMsg.message_id,
-								`📤 创建 Telegraph 页面...\n${phaseText}: ${progress.current}/${progress.total}${availableText}`,
-								{ parse_mode: "Markdown" },
-							)
-							.catch((err) => {
-								console.error("Failed to update Telegraph progress:", err);
-							});
-					}
+					const phaseText =
+						progress.phase === "uploading" ? "上传页面" : "刷新页码";
+					const availableText =
+						progress.availableUrls && progress.availableUrls.length > 0
+							? `\n\n可查看页面: ${progress.availableUrls
+									.map((url, i) => `[${i + 1}](${url})`)
+									.join(", ")}`
+							: "";
+					await updater?.update(
+						`📤 创建 Telegraph 页面...\n${phaseText}: ${progress.current}/${progress.total}${availableText}`,
+						{ parse_mode: "Markdown" },
+					);
 				},
 			);
 
 			// Delete status message before sending Telegraph URLs
-			if (statusMsg) {
-				await ctx.api
-					.deleteMessage(chatId, statusMsg.message_id)
-					.catch(() => {});
-			}
+			await updater?.delete();
 
 			// Send Telegraph URL(s)
 			if (pageUrls.length === 1) {
@@ -77,6 +60,7 @@ export const tg: CommandDefinition = {
 		} catch (error) {
 			console.error("Error in tg command:", error);
 			await ctx.reply("❌ Telegraph export failed.");
+			await updater?.delete();
 		}
 		return undefined;
 	},

@@ -8,6 +8,7 @@ import { generateThreadFilename } from "../../utils/filename.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { sendDocument } from "./common/file-utils.ts";
+import { createStatusUpdater } from "./common/status-updater.ts";
 
 export const get: CommandDefinition = {
 	name: "get",
@@ -23,15 +24,11 @@ export const get: CommandDefinition = {
 		if (!chatId) return undefined;
 		const encoder = new TextEncoder();
 
+		const updater = createStatusUpdater(ctx.api, chatId, statusMsg);
+
 		try {
 			// 1. Send Markdown Files
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📝 Sending Markdown files...",
-				);
-			}
+			await updater?.forceUpdate("📝 Sending Markdown files...");
 
 			// Filtered Markdown
 			const filteredBuffer = encoder.encode(filteredMarkdown);
@@ -52,28 +49,18 @@ export const get: CommandDefinition = {
 			}
 
 			// 2. Generate and Send PDF
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📄 Generating PDF (filtered)...",
-				);
-			}
+			await updater?.forceUpdate("📄 Generating PDF (filtered)...");
 
 			// Filtered PDF
 			const filteredPdfBuffer = await generatePdf(
 				filteredMarkdown,
 				title,
 				async (progress) => {
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "downloading"
-								? `📥 下载图片: ${progress.current}/${progress.total}`
-								: "📄 转换中...";
-						await ctx.api
-							.editMessageText(chatId, statusMsg.message_id, phaseText)
-							.catch(() => {});
-					}
+					const phaseText =
+						progress.phase === "downloading"
+							? `📥 下载图片: ${progress.current}/${progress.total}`
+							: "📄 转换中...";
+					await updater?.update(phaseText);
 				},
 			);
 
@@ -89,26 +76,16 @@ export const get: CommandDefinition = {
 
 			// All PDF
 			if (allMarkdown) {
-				if (statusMsg) {
-					await ctx.api.editMessageText(
-						chatId,
-						statusMsg.message_id,
-						"📄 Generating PDF (all)...",
-					);
-				}
+				await updater?.forceUpdate("📄 Generating PDF (all)...");
 				const allPdfBuffer = await generatePdf(
 					allMarkdown,
 					title,
 					async (progress) => {
-						if (statusMsg) {
-							const phaseText =
-								progress.phase === "downloading"
-									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
-									: "📄 转换中...";
-							await ctx.api
-								.editMessageText(chatId, statusMsg.message_id, phaseText)
-								.catch(() => {});
-						}
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+								: "📄 转换中...";
+						await updater?.update(phaseText);
 					},
 				);
 				if (allPdfBuffer) {
@@ -123,28 +100,18 @@ export const get: CommandDefinition = {
 			}
 
 			// 3. Generate and Send EPUB
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📚 Generating EPUB (filtered)...",
-				);
-			}
+			await updater?.forceUpdate("📚 Generating EPUB (filtered)...");
 
 			// Filtered EPUB
 			const filteredEpubBuffer = await generateEpub(
 				filteredMarkdown,
 				title,
 				async (progress) => {
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "downloading"
-								? `📥 下载图片: ${progress.current}/${progress.total}`
-								: "📚 转换中...";
-						await ctx.api
-							.editMessageText(chatId, statusMsg.message_id, phaseText)
-							.catch(() => {});
-					}
+					const phaseText =
+						progress.phase === "downloading"
+							? `📥 下载图片: ${progress.current}/${progress.total}`
+							: "📚 转换中...";
+					await updater?.update(phaseText);
 				},
 			);
 
@@ -160,26 +127,16 @@ export const get: CommandDefinition = {
 
 			// All EPUB
 			if (allMarkdown) {
-				if (statusMsg) {
-					await ctx.api.editMessageText(
-						chatId,
-						statusMsg.message_id,
-						"📚 Generating EPUB (all)...",
-					);
-				}
+				await updater?.forceUpdate("📚 Generating EPUB (all)...");
 				const allEpubBuffer = await generateEpub(
 					allMarkdown,
 					title,
 					async (progress) => {
-						if (statusMsg) {
-							const phaseText =
-								progress.phase === "downloading"
-									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
-									: "📚 转换中...";
-							await ctx.api
-								.editMessageText(chatId, statusMsg.message_id, phaseText)
-								.catch(() => {});
-						}
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+								: "📚 转换中...";
+						await updater?.update(phaseText);
 					},
 				);
 				if (allEpubBuffer) {
@@ -194,50 +151,30 @@ export const get: CommandDefinition = {
 			}
 
 			// 4. Telegraph Export
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📤 Creating Telegraph pages...",
-				);
-			}
+			await updater?.forceUpdate("📤 Creating Telegraph pages...");
 
 			const pageUrls = await exportToTelegraph(
 				filteredMarkdown,
 				title,
 				"neo-island-watcher",
 				async (progress) => {
-					// Update status message with progress
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "uploading" ? "上传页面" : "刷新页码";
-						const availableText =
-							progress.availableUrls && progress.availableUrls.length > 0
-								? `\n\n可查看页面: ${progress.availableUrls
-										.map((url, i) => `[${i + 1}](${url})`)
-										.join(", ")}`
-								: "";
-
-						await ctx.api
-							.editMessageText(
-								chatId,
-								statusMsg.message_id,
-								`📤 创建 Telegraph 页面...\n${phaseText}: ${progress.current}/${progress.total}${availableText}`,
-								{ parse_mode: "Markdown" },
-							)
-							.catch((err) => {
-								console.error("Failed to update Telegraph progress:", err);
-							});
-					}
+					const phaseText =
+						progress.phase === "uploading" ? "上传页面" : "刷新页码";
+					const availableText =
+						progress.availableUrls && progress.availableUrls.length > 0
+							? `\n\n可查看页面: ${progress.availableUrls
+									.map((url, i) => `[${i + 1}](${url})`)
+									.join(", ")}`
+							: "";
+					await updater?.update(
+						`📤 创建 Telegraph 页面...\n${phaseText}: ${progress.current}/${progress.total}${availableText}`,
+						{ parse_mode: "Markdown" },
+					);
 				},
 			);
 
 			// Delete status message before sending Telegraph URLs
-			if (statusMsg) {
-				await ctx.api
-					.deleteMessage(chatId, statusMsg.message_id)
-					.catch(() => {});
-			}
+			await updater?.delete();
 
 			// Send Telegraph URL(s)
 			if (pageUrls.length === 1) {
@@ -256,11 +193,7 @@ export const get: CommandDefinition = {
 			await ctx.reply(
 				"❌ Error processing request. Some files might be missing.",
 			);
-			if (statusMsg) {
-				await ctx.api
-					.deleteMessage(chatId, statusMsg.message_id)
-					.catch(() => {});
-			}
+			await updater?.delete();
 		}
 		return undefined;
 	},

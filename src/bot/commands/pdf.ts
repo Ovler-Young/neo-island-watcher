@@ -3,6 +3,7 @@ import { generateThreadFilename } from "../../utils/filename.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { sendDocument } from "./common/file-utils.ts";
+import { createStatusUpdater } from "./common/status-updater.ts";
 
 export const pdf: CommandDefinition = {
 	name: "pdf",
@@ -17,30 +18,22 @@ export const pdf: CommandDefinition = {
 		const chatId = ctx.chat?.id;
 		if (!chatId) return undefined;
 
+		const updater = createStatusUpdater(ctx.api, chatId, statusMsg);
+
 		try {
 			// Update status
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📄 Generating PDF (filtered)...",
-				);
-			}
+			await updater?.forceUpdate("📄 Generating PDF (filtered)...");
 
 			// Generate Filtered PDF
 			const filteredPdfBuffer = await generatePdf(
 				filteredMarkdown,
 				title,
 				async (progress) => {
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "downloading"
-								? `📥 下载图片: ${progress.current}/${progress.total}`
-								: "📄 转换中...";
-						await ctx.api
-							.editMessageText(chatId, statusMsg.message_id, phaseText)
-							.catch(() => {});
-					}
+					const phaseText =
+						progress.phase === "downloading"
+							? `📥 下载图片: ${progress.current}/${progress.total}`
+							: "📄 转换中...";
+					await updater?.update(phaseText);
 				},
 			);
 
@@ -56,27 +49,17 @@ export const pdf: CommandDefinition = {
 
 			// Generate All PDF if available
 			if (allMarkdown) {
-				if (statusMsg) {
-					await ctx.api.editMessageText(
-						chatId,
-						statusMsg.message_id,
-						"📄 Generating PDF (all)...",
-					);
-				}
+				await updater?.forceUpdate("📄 Generating PDF (all)...");
 
 				const allPdfBuffer = await generatePdf(
 					allMarkdown,
 					title,
 					async (progress) => {
-						if (statusMsg) {
-							const phaseText =
-								progress.phase === "downloading"
-									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
-									: "📄 转换中...";
-							await ctx.api
-								.editMessageText(chatId, statusMsg.message_id, phaseText)
-								.catch(() => {});
-						}
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+								: "📄 转换中...";
+						await updater?.update(phaseText);
 					},
 				);
 
@@ -91,14 +74,11 @@ export const pdf: CommandDefinition = {
 				}
 			}
 
-			if (statusMsg) {
-				await ctx.api
-					.deleteMessage(chatId, statusMsg.message_id)
-					.catch(() => {});
-			}
+			await updater?.delete();
 		} catch (error) {
 			console.error("Error in pdf command:", error);
 			await ctx.reply("❌ Error generating PDF.");
+			await updater?.delete();
 		}
 		return undefined;
 	},

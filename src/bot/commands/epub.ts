@@ -3,6 +3,7 @@ import { generateThreadFilename } from "../../utils/filename.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { sendDocument } from "./common/file-utils.ts";
+import { createStatusUpdater } from "./common/status-updater.ts";
 
 export const epub: CommandDefinition = {
 	name: "epub",
@@ -17,30 +18,22 @@ export const epub: CommandDefinition = {
 		const chatId = ctx.chat?.id;
 		if (!chatId) return undefined;
 
+		const updater = createStatusUpdater(ctx.api, chatId, statusMsg);
+
 		try {
 			// Update status
-			if (statusMsg) {
-				await ctx.api.editMessageText(
-					chatId,
-					statusMsg.message_id,
-					"📚 Generating EPUB (filtered)...",
-				);
-			}
+			await updater?.forceUpdate("📚 Generating EPUB (filtered)...");
 
 			// Generate Filtered EPUB
 			const filteredEpubBuffer = await generateEpub(
 				filteredMarkdown,
 				title,
 				async (progress) => {
-					if (statusMsg) {
-						const phaseText =
-							progress.phase === "downloading"
-								? `📥 下载图片: ${progress.current}/${progress.total}`
-								: "📚 转换中...";
-						await ctx.api
-							.editMessageText(chatId, statusMsg.message_id, phaseText)
-							.catch(() => {});
-					}
+					const phaseText =
+						progress.phase === "downloading"
+							? `📥 下载图片: ${progress.current}/${progress.total}`
+							: "📚 转换中...";
+					await updater?.update(phaseText);
 				},
 			);
 
@@ -56,27 +49,17 @@ export const epub: CommandDefinition = {
 
 			// Generate All EPUB if available
 			if (allMarkdown) {
-				if (statusMsg) {
-					await ctx.api.editMessageText(
-						chatId,
-						statusMsg.message_id,
-						"📚 Generating EPUB (all)...",
-					);
-				}
+				await updater?.forceUpdate("📚 Generating EPUB (all)...");
 
 				const allEpubBuffer = await generateEpub(
 					allMarkdown,
 					title,
 					async (progress) => {
-						if (statusMsg) {
-							const phaseText =
-								progress.phase === "downloading"
-									? `📥 下载图片 (all): ${progress.current}/${progress.total}`
-									: "📚 转换中...";
-							await ctx.api
-								.editMessageText(chatId, statusMsg.message_id, phaseText)
-								.catch(() => {});
-						}
+						const phaseText =
+							progress.phase === "downloading"
+								? `📥 下载图片 (all): ${progress.current}/${progress.total}`
+								: "📚 转换中...";
+						await updater?.update(phaseText);
 					},
 				);
 
@@ -91,14 +74,11 @@ export const epub: CommandDefinition = {
 				}
 			}
 
-			if (statusMsg) {
-				await ctx.api
-					.deleteMessage(chatId, statusMsg.message_id)
-					.catch(() => {});
-			}
+			await updater?.delete();
 		} catch (error) {
 			console.error("Error in epub command:", error);
 			await ctx.reply("❌ Error generating EPUB.");
+			await updater?.delete();
 		}
 		return undefined;
 	},

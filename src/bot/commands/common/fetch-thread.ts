@@ -115,7 +115,7 @@ export async function fetchThread(
 					);
 					const now = Date.now();
 					if (
-						(now - lastUpdate >= 2000 || progress.percentage === 100) &&
+						(now - lastUpdate >= 10000 || progress.percentage === 100) &&
 						statusMsg
 					) {
 						ctx.api
