@@ -99,9 +99,12 @@ export class XDNMBClient {
 					},
 				});
 			} catch (error) {
+				if (error instanceof Error && error.message.includes("维护")) {
+					throw error;
+				}
 				if (error instanceof Error && error.message.includes("饼干")) {
 					console.log(
-						`🍪 Cookie from group ${result.groupId} is invalid, disabling.`,
+						`🍪 Cookie from group ${result.groupId} is invalid, disabling. (${error.message})`,
 					);
 					await groupCookies.disableCookie(result.groupId);
 					this.onCookieDisabled?.(result.groupId, error.message);

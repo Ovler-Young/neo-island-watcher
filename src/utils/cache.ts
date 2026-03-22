@@ -45,8 +45,15 @@ export async function getCachedPage(
 		}
 
 		const content = await Deno.readTextFile(filePath);
-		const data = JSON.parse(content) as ThreadData;
-		return data;
+		const data = JSON.parse(content);
+		if (!data || typeof data !== "object" || !Array.isArray(data.Replies)) {
+			console.warn(
+				`⚠️ Corrupted cache for thread ${threadId}, page ${page}, removing.`,
+			);
+			await Deno.remove(filePath);
+			return null;
+		}
+		return data as ThreadData;
 	} catch (error) {
 		console.error(
 			`Error reading cache for thread ${threadId}, page ${page}:`,
@@ -65,6 +72,12 @@ export async function setCachedPage(
 	data: ThreadData,
 ): Promise<void> {
 	try {
+		if (!data || typeof data !== "object" || !Array.isArray(data.Replies)) {
+			console.warn(
+				`⚠️ Refused to cache invalid data for thread ${threadId}, page ${page}`,
+			);
+			return;
+		}
 		await ensureCacheDir(threadId);
 		const filePath = getCacheFilePath(threadId, page);
 		await Deno.writeTextFile(filePath, JSON.stringify(data, null, 2));
