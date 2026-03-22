@@ -1,11 +1,11 @@
 import type { FeedThread, Reply } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { bot } from "../bot/bot.ts";
-import { config } from "../config.ts";
 import { feedStates } from "../storage/feed-state.ts";
 import { groupBindings } from "../storage/group-bindings.ts";
 import { type ThreadStateData, threadStates } from "../storage/thread-state.ts";
 import { isSpamContent } from "../utils/filter.ts";
+import { sendPhotoWithFallback } from "../utils/telegram.ts";
 import { formatTitle } from "../utils/title.ts";
 import {
 	formatReplyMessage,
@@ -90,36 +90,13 @@ export async function handleNewThread(
 
 			let sentMessage: { message_id: number };
 			if (thread.img && thread.ext) {
-				// Try to send photo with caption if thread has image
-				const imageUrl = `${config.xdnmbImageBase}/image/${thread.img}${thread.ext}`;
-				try {
-					sentMessage = await bot.api.sendPhoto(groupId, imageUrl, {
-						caption: initialMessage,
-						message_thread_id: topicId,
-						parse_mode: "HTML",
-						show_caption_above_media: true,
-					});
-				} catch (error) {
-					// Fall back to text message with image link if sendPhoto fails
-					console.error(
-						`Failed to send photo ${imageUrl} for thread ${thread.id}, falling back to link preview:`,
-						error,
-					);
-					const messageWithImageLink = `<a href="${imageUrl}">${thread.img}</a>\n${initialMessage}`;
-					sentMessage = await bot.api.sendMessage(
-						groupId,
-						messageWithImageLink,
-						{
-							message_thread_id: topicId,
-							parse_mode: "HTML",
-							link_preview_options: {
-								is_disabled: false,
-								url: imageUrl,
-								prefer_large_media: true,
-							},
-						},
-					);
-				}
+				sentMessage = await sendPhotoWithFallback(
+					groupId,
+					thread.img,
+					thread.ext,
+					initialMessage,
+					topicId,
+				);
 			} else {
 				// Send text-only message if no image
 				sentMessage = await bot.api.sendMessage(groupId, initialMessage, {
@@ -317,32 +294,13 @@ async function sendBatchedReplies(
 						currentLength = 0;
 					}
 
-					// Try to send image with caption
-					const imageUrl = `${config.xdnmbImageBase}/image/${reply.img}${reply.ext}`;
-					try {
-						await bot.api.sendPhoto(binding.groupId, imageUrl, {
-							caption: chunk,
-							message_thread_id: binding.topicId,
-							parse_mode: "HTML",
-							show_caption_above_media: true,
-						});
-					} catch (error) {
-						// Fall back to text message with image link if sendPhoto fails
-						console.error(
-							`Failed to send photo ${imageUrl} for reply ${reply.id}, falling back to link preview:`,
-							error,
-						);
-						const messageWithImageLink = `<a href="${imageUrl}">${reply.img}</a>\n${chunk}`;
-						await bot.api.sendMessage(binding.groupId, messageWithImageLink, {
-							message_thread_id: binding.topicId,
-							parse_mode: "HTML",
-							link_preview_options: {
-								is_disabled: false,
-								url: imageUrl,
-								prefer_large_media: true,
-							},
-						});
-					}
+					await sendPhotoWithFallback(
+						binding.groupId,
+						reply.img,
+						reply.ext,
+						chunk,
+						binding.topicId,
+					);
 				} else {
 					currentBatch.push(chunk);
 					currentLength +=
