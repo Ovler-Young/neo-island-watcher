@@ -1,4 +1,4 @@
-import { exportToTelegraph } from "../../services/telegraph.ts";
+import { exportToTelegraph } from "../../export/telegraph.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { createStatusUpdater } from "./common/status-updater.ts";

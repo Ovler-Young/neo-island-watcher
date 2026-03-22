@@ -1,7 +1,7 @@
 import type { Context } from "grammy";
 import type { ProgressInfo } from "../../../api/types.ts";
 import { xdnmbClient } from "../../../api/xdnmb.ts";
-import { formatThreadAsMarkdown } from "../../../services/markdown-formatter.ts";
+import { formatThreadAsMarkdown } from "../../../export/markdown.ts";
 import { groupBindings } from "../../../storage/group-bindings.ts";
 import type { ThreadStateData } from "../../../storage/thread-state.ts";
 import { threadStates } from "../../../storage/thread-state.ts";

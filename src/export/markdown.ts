@@ -1,8 +1,8 @@
 import type { ProgressInfo, Reply, ThreadData } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
+import { shouldSendReply } from "../services/reply-sender.ts";
 import type { ThreadStateData } from "../storage/thread-state.ts";
-import { shouldSendReply } from "./thread.ts";
 
 // Fast synchronous content processing for markdown
 function processContentFast(content: string): string {

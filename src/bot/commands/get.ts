@@ -1,8 +1,8 @@
 import { InputFile } from "grammy";
 
-import { generateEpub } from "../../services/epub-generator.ts";
-import { generatePdf } from "../../services/pdf-generator.ts";
-import { exportToTelegraph } from "../../services/telegraph.ts";
+import { generateEpub } from "../../export/epub.ts";
+import { generatePdf } from "../../export/pdf.ts";
+import { exportToTelegraph } from "../../export/telegraph.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
 
 import type { CommandDefinition } from "../types.ts";

@@ -1,4 +1,4 @@
-import { generatePdf } from "../../services/pdf-generator.ts";
+import { generatePdf } from "../../export/pdf.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";

@@ -1,10 +1,10 @@
 import {
 	downloadAndReplaceImages,
-	isPandocAvailable,
-	type PdfProgress,
-} from "./pdf-generator.ts";
+	type ImageProgress,
+} from "./image-processor.ts";
+import { isPandocAvailable } from "./pdf.ts";
 
-export type EpubProgress = PdfProgress;
+export type EpubProgress = ImageProgress;
 
 /**
  * Convert markdown to EPUB using pandoc.
