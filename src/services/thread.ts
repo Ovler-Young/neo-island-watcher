@@ -174,6 +174,13 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
 		let pageData = await xdnmbClient.getThread(Number(threadId), startPage);
+		if (!pageData?.Replies) {
+			console.error(
+				`Thread ${threadId} returned invalid data:`,
+				JSON.stringify(pageData).slice(0, 200),
+			);
+			return;
+		}
 		const newTotalReplyCount = pageData.ReplyCount;
 		let lastReply = pageData.Replies[pageData.Replies.length - 1];
 

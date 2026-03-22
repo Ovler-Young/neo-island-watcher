@@ -45,6 +45,10 @@ export class XDNMBClient {
 
 		const data = await response.json();
 
+		if (typeof data === "string") {
+			throw new Error(`API error: ${data}`);
+		}
+
 		if (
 			data &&
 			typeof data === "object" &&
