@@ -203,7 +203,49 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 		});
 	} catch (error) {
 		console.error(`Error checking thread ${threadId} for replies:`, error);
+		if (error instanceof Error && error.message.includes("饼干")) {
+			await notifyCookieError(threadId, error.message);
+		}
 	}
+}
+
+const COOKIE_WARNING_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+
+async function notifyCookieError(
+	threadId: string,
+	errorMessage: string,
+): Promise<void> {
+	const threadState = await threadStates.getThreadState(threadId);
+	if (!threadState) {
+		return;
+	}
+
+	if (threadState.lastCookieWarning) {
+		const elapsed =
+			Date.now() - new Date(threadState.lastCookieWarning).getTime();
+		if (elapsed < COOKIE_WARNING_INTERVAL) {
+			return;
+		}
+	}
+
+	const message = `⚠️ 串 No.${threadId} 检查失败：${errorMessage}\n请使用 /setcookie 设置新的饼干。`;
+
+	for (const binding of threadState.bindings) {
+		try {
+			await bot.api.sendMessage(binding.groupId, message, {
+				message_thread_id: binding.topicId,
+			});
+		} catch (err) {
+			console.error(
+				`Failed to send cookie warning to group ${binding.groupId}:`,
+				err,
+			);
+		}
+	}
+
+	await threadStates.updateThreadState(threadId, {
+		lastCookieWarning: new Date().toISOString(),
+	});
 }
 
 export function shouldSendReply(

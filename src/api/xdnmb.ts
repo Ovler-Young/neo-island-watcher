@@ -42,7 +42,18 @@ export class XDNMBClient {
 
 		console.log(`API request to ${endpoint} succeeded.`);
 
-		return await response.json();
+		const data = await response.json();
+
+		if (
+			data &&
+			typeof data === "object" &&
+			"success" in data &&
+			data.success === false
+		) {
+			throw new Error(`API error: ${data.error || "Unknown error"}`);
+		}
+
+		return data;
 	}
 
 	private async requestWithCookie<T>(
