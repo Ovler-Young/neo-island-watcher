@@ -99,9 +99,9 @@ export class XDNMBClient {
 					},
 				});
 			} catch (error) {
-				if (error instanceof Error && error.message.startsWith("API error:")) {
+				if (error instanceof Error && error.message.includes("饼干")) {
 					console.log(
-						`🍪 Cookie from group ${result.groupId} is invalid, disabling. (${error.message})`,
+						`🍪 Cookie from group ${result.groupId} is invalid, disabling.`,
 					);
 					await groupCookies.disableCookie(result.groupId);
 					this.onCookieDisabled?.(result.groupId, error.message);
