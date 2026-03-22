@@ -17,6 +17,7 @@ import type {
 export class XDNMBClient {
 	private readonly apiBase: string;
 	private readonly frontendBase: string;
+	onCookieDisabled?: (groupId: string, error: string) => void;
 
 	constructor() {
 		this.apiBase = config.xdnmbApiBase;
@@ -61,21 +62,50 @@ export class XDNMBClient {
 		options: RequestInit = {},
 		cookie?: string,
 	): Promise<T> {
-		if (!cookie) {
-			const randomCookie = await groupCookies.getRandomCookie();
-			if (randomCookie) {
-				cookie = randomCookie.cookie;
-			} else {
-				throw new Error("No cookie available for authenticated request");
+		if (cookie) {
+			return this.request<T>(endpoint, {
+				...options,
+				headers: {
+					Cookie: `userhash=${cookie}`,
+					...options.headers,
+				},
+			});
+		}
+
+		const triedGroupIds = new Set<string>();
+
+		while (true) {
+			const result = await groupCookies.getRandomCookie();
+			if (!result) {
+				throw new Error("No valid cookie available");
+			}
+
+			if (triedGroupIds.has(result.groupId)) {
+				// All remaining cookies have been tried
+				throw new Error("No valid cookie available");
+			}
+			triedGroupIds.add(result.groupId);
+
+			try {
+				return await this.request<T>(endpoint, {
+					...options,
+					headers: {
+						Cookie: `userhash=${result.data.cookie}`,
+						...options.headers,
+					},
+				});
+			} catch (error) {
+				if (error instanceof Error && error.message.includes("饼干")) {
+					console.log(
+						`🍪 Cookie from group ${result.groupId} is invalid, disabling.`,
+					);
+					await groupCookies.disableCookie(result.groupId);
+					this.onCookieDisabled?.(result.groupId, error.message);
+					continue;
+				}
+				throw error;
 			}
 		}
-		return this.request<T>(endpoint, {
-			...options,
-			headers: {
-				Cookie: `userhash=${cookie}`,
-				...options.headers,
-			},
-		});
 	}
 
 	getCDNPaths(): Promise<CDNInfo[]> {

@@ -12,7 +12,6 @@ export interface ThreadStateData {
 	lastReplyId: number;
 	lastCheck: string;
 	lastNewReplyAt?: string; // ISO timestamp - when we last found new replies
-	lastCookieWarning?: string; // ISO timestamp - last cookie warning sent
 	writer: string[];
 	bindings: ThreadBinding[];
 }

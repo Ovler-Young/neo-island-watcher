@@ -6,6 +6,7 @@ export interface GroupCookieData {
 	telegramUserId: number;
 	addedAt: string;
 	lastUsed?: string;
+	disabled?: boolean;
 }
 
 export interface GroupCookieStorage {
@@ -57,17 +58,31 @@ class GroupCookiesStorage extends BaseStorage<GroupCookieStorage> {
 		});
 	}
 
-	async getRandomCookie(): Promise<GroupCookieData | null> {
+	async getRandomCookie(): Promise<{
+		groupId: string;
+		data: GroupCookieData;
+	} | null> {
 		const data = await this.read();
-		const cookies = Object.values(data);
+		const entries = Object.entries(data).filter(
+			([_, cookie]) => !cookie.disabled,
+		);
 
-		if (cookies.length === 0) {
+		if (entries.length === 0) {
 			return null;
 		}
 
-		// Randomly select a cookie from available cookies
-		const randomIndex = Math.floor(Math.random() * cookies.length);
-		return cookies[randomIndex];
+		const randomIndex = Math.floor(Math.random() * entries.length);
+		const [groupId, cookieData] = entries[randomIndex];
+		return { groupId, data: cookieData };
+	}
+
+	async disableCookie(groupId: string): Promise<void> {
+		await this.update((data) => {
+			if (data[groupId]) {
+				data[groupId].disabled = true;
+			}
+			return data;
+		});
 	}
 
 	async getAllCookies(): Promise<GroupCookieData[]> {
