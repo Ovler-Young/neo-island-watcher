@@ -4,7 +4,10 @@ interface Config {
 	xdnmbApiBase: string;
 	xdnmbFrontendBase: string;
 	xdnmbImageBase: string;
-	monitoringInterval: number;
+	/** How often to poll individual threads for new replies. */
+	threadCheckInterval: number;
+	/** How often to poll feeds for new threads. */
+	feedCheckInterval: number;
 	inactiveThreadDays: number;
 	inactiveCheckInterval: number;
 }
@@ -54,8 +57,11 @@ export const config: Config = {
 		"https://www.nmbxd1.com",
 	),
 	xdnmbImageBase: getOptionalEnv("XDNMB_IMAGE_BASE", "https://image.nmb.best"),
-	monitoringInterval: parseInterval(
-		getOptionalEnv("MONITORING_INTERVAL", "5m"),
+	threadCheckInterval: parseInterval(
+		getOptionalEnv("THREAD_CHECK_INTERVAL", "5m"),
+	),
+	feedCheckInterval: parseInterval(
+		getOptionalEnv("FEED_CHECK_INTERVAL", "1h"),
 	),
 	inactiveThreadDays: Number.parseInt(
 		getOptionalEnv("INACTIVE_THREAD_DAYS", "31"),

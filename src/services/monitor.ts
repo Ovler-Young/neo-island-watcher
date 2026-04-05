@@ -6,36 +6,54 @@ import { threadStates } from "../storage/thread-state.ts";
 import { checkFeed } from "./feed.ts";
 import { checkExistingThreads } from "./thread.ts";
 
-let monitoringInterval: number | undefined;
+let feedInterval: number | undefined;
+let threadInterval: number | undefined;
 
 export async function startMonitoring(): Promise<void> {
-	console.log("📡 Starting feed monitoring...");
+	console.log("📡 Starting feed & thread monitoring...");
 
-	if (monitoringInterval) {
-		clearInterval(monitoringInterval);
+	if (feedInterval) {
+		clearInterval(feedInterval);
+	}
+	if (threadInterval) {
+		clearInterval(threadInterval);
 	}
 
+	// Run both immediately on startup.
 	await checkAllFeeds();
+	await checkExistingThreads();
 
-	monitoringInterval = setInterval(async () => {
+	feedInterval = setInterval(async () => {
 		try {
 			await checkAllFeeds();
 		} catch (error) {
-			console.error("Error during monitoring cycle:", error);
+			console.error("Error during feed monitoring cycle:", error);
 		}
-	}, config.monitoringInterval);
+	}, config.feedCheckInterval);
+
+	threadInterval = setInterval(async () => {
+		try {
+			await checkExistingThreads();
+		} catch (error) {
+			console.error("Error during thread monitoring cycle:", error);
+		}
+	}, config.threadCheckInterval);
 
 	console.log(
-		`✅ Monitoring started with ${config.monitoringInterval}ms interval`,
+		`✅ Monitoring started — feeds every ${config.feedCheckInterval / 1000}s, threads every ${config.threadCheckInterval / 1000}s`,
 	);
 }
 
 export function stopMonitoring(): void {
-	if (monitoringInterval) {
-		clearInterval(monitoringInterval);
-		monitoringInterval = undefined;
-		console.log("🛑 Monitoring stopped");
+	if (feedInterval) {
+		clearInterval(feedInterval);
+		feedInterval = undefined;
 	}
+	if (threadInterval) {
+		clearInterval(threadInterval);
+		threadInterval = undefined;
+	}
+	console.log("🛑 Monitoring stopped");
 }
 
 export async function shouldCheckThread(
@@ -58,7 +76,7 @@ export async function shouldCheckThread(
 	if (msSinceNewReply > inactiveThreshold) {
 		return msSinceLastCheck >= config.inactiveCheckInterval;
 	} else {
-		return msSinceLastCheck >= config.monitoringInterval;
+		return msSinceLastCheck >= config.threadCheckInterval;
 	}
 }
 
@@ -81,9 +99,6 @@ async function checkAllFeeds(): Promise<void> {
 				console.error(`Error checking feed ${feedUuid}:`, error);
 			}
 		}
-
-		// Also check existing threads for new replies
-		await checkExistingThreads();
 	} catch (error) {
 		console.error("Error in checkAllFeeds:", error);
 	}
