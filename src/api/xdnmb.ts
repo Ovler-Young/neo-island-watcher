@@ -33,7 +33,7 @@ export class XDNMBClient {
 			throw new Error(`API request failed: ${response.status}`);
 		}
 
-		console.log(`API request to ${endpoint} succeeded.`);
+		// console.log(`API request to ${endpoint} succeeded.`);
 
 		const data = await response.json();
 
