@@ -7,16 +7,44 @@ import type {
 	ThreadData,
 	TimelineInfo,
 } from "./types.ts";
-import { getFullThread, getThread, getUpdatedThread } from "./xdnmb-thread.ts";
+import {
+	getFullThread,
+	getThreadBatch,
+	getThread,
+	getThreadPages,
+	getUpdatedThread,
+} from "./xdnmb-thread.ts";
+import type { ThreadPageRequest, ThreadPageResult } from "./xdnmb-thread.ts";
+
+const OFFICIAL_XDNMB_API_BASE = "https://api.nmb.best";
+
+function normalizeBaseUrl(url: string): string {
+	const normalized = new URL(url);
+	normalized.hash = "";
+	normalized.search = "";
+	normalized.pathname = normalized.pathname.replace(/\/+$/, "");
+	return normalized.toString().replace(/\/$/, "");
+}
 
 export class XDNMBClient {
 	readonly apiBase: string;
 	readonly frontendBase: string;
+	readonly canUseProxyFormat: boolean;
 	onCookieDisabled?: (groupId: string, error: string) => void;
 
 	constructor() {
 		this.apiBase = config.xdnmbApiBase;
 		this.frontendBase = config.xdnmbFrontendBase;
+		this.canUseProxyFormat =
+			config.xdnmbProxyFormatEnabled &&
+			normalizeBaseUrl(this.apiBase) !==
+				normalizeBaseUrl(OFFICIAL_XDNMB_API_BASE);
+
+		if (config.xdnmbProxyFormatEnabled && !this.canUseProxyFormat) {
+			console.warn(
+				"⚠️ XDNMB_PROXY_FORMAT_ENABLED is set, but XDNMB_API_BASE still points to the official upstream. /Api/thread/batch requests will be skipped.",
+			);
+		}
 	}
 
 	async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -125,6 +153,18 @@ export class XDNMBClient {
 
 	getThread(id: number, page = 1, maxPage?: number): Promise<ThreadData> {
 		return getThread(this, id, page, maxPage);
+	}
+
+	getThreadBatch(requests: ThreadPageRequest[]): Promise<ThreadPageResult[]> {
+		return getThreadBatch(this, requests);
+	}
+
+	getThreadPages(
+		id: number,
+		pages: number[],
+		maxPage?: number,
+	): Promise<ThreadData[]> {
+		return getThreadPages(this, id, pages, maxPage);
 	}
 
 	getFullThread(

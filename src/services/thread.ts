@@ -1,4 +1,4 @@
-import type { FeedThread } from "../api/types.ts";
+import type { FeedThread, ThreadData } from "../api/types.ts";
 import { xdnmbClient } from "../api/xdnmb.ts";
 import { bot } from "../bot/bot.ts";
 import { feedStates } from "../storage/feed-state.ts";
@@ -110,14 +110,52 @@ export async function handleNewThread(
 export async function checkExistingThreads(): Promise<void> {
 	try {
 		const allThreads = await threadStates.getAllThreads();
+		const threadsToCheck: { threadId: string; startPage: number }[] = [];
 
 		for (const [threadId, threadState] of Object.entries(allThreads)) {
-			try {
-				if (!(await shouldCheckThread(threadId, threadState))) {
-					continue;
-				}
+			if (!(await shouldCheckThread(threadId, threadState))) {
+				continue;
+			}
 
-				await checkThreadForReplies(threadId);
+			const startPage = Math.max(
+				1,
+				Math.ceil((threadState.lastReplyCount || 0) / 19),
+			);
+			threadsToCheck.push({ threadId, startPage });
+		}
+
+		const initialPageMap = new Map<string, ThreadData>();
+
+		if (xdnmbClient.canUseProxyFormat && threadsToCheck.length > 1) {
+			try {
+				const initialPageResults = await xdnmbClient.getThreadBatch(
+					threadsToCheck.map(({ threadId, startPage }) => ({
+						id: Number(threadId),
+						page: startPage,
+					})),
+				);
+
+				for (const result of initialPageResults) {
+					if (result.error || !result.data) {
+						console.error(
+							`Error prefetching thread ${result.id} page ${result.page}: ${result.error ?? "Missing thread data"}`,
+						);
+						continue;
+					}
+
+					initialPageMap.set(`${result.id}:${result.page}`, result.data);
+				}
+			} catch (error) {
+				console.error("Error prefetching initial thread pages:", error);
+			}
+		}
+
+		for (const { threadId, startPage } of threadsToCheck) {
+			try {
+				await checkThreadForReplies(
+					threadId,
+					initialPageMap.get(`${threadId}:${startPage}`),
+				);
 				await new Promise((resolve) => setTimeout(resolve, 500));
 			} catch (error) {
 				console.error(`Error checking thread ${threadId}:`, error);
@@ -128,7 +166,10 @@ export async function checkExistingThreads(): Promise<void> {
 	}
 }
 
-export async function checkThreadForReplies(threadId: string): Promise<void> {
+export async function checkThreadForReplies(
+	threadId: string,
+	initialPageData?: ThreadData,
+): Promise<void> {
 	try {
 		const threadState = await threadStates.getThreadState(threadId);
 		if (!threadState) {
@@ -138,7 +179,8 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 		const lastCount = threadState.lastReplyCount || 0;
 		const startPage = Math.max(1, Math.ceil(lastCount / 19));
 
-		let pageData = await xdnmbClient.getThread(Number(threadId), startPage);
+		let pageData =
+			initialPageData ?? (await xdnmbClient.getThread(Number(threadId), startPage));
 		if (!pageData?.Replies) {
 			console.error(
 				`Thread ${threadId} returned invalid data:`,
@@ -158,12 +200,35 @@ export async function checkThreadForReplies(threadId: string): Promise<void> {
 		);
 
 		const maxPage = Math.ceil(newTotalReplyCount / 19);
+		const remainingPages: number[] = [];
+		for (let page = startPage + 1; page <= maxPage; page++) {
+			remainingPages.push(page);
+		}
+		const remainingPageData =
+			remainingPages.length > 0
+				? await xdnmbClient.getThreadPages(
+						Number(threadId),
+						remainingPages,
+						maxPage,
+					)
+				: [];
+		const pagesToProcess = [
+			{ page: startPage, data: pageData },
+			...remainingPages.map((page, index) => {
+				const data = remainingPageData[index];
+				if (!data) {
+					throw new Error(`Missing thread data for page ${page}`);
+				}
 
-		for (let page = startPage; page <= maxPage; page++) {
-			pageData =
-				page === startPage
-					? pageData
-					: await xdnmbClient.getThread(Number(threadId), page, maxPage);
+				return {
+					page,
+					data,
+				};
+			}),
+		];
+
+		for (const { page, data } of pagesToProcess) {
+			pageData = data;
 
 			const newReplies = pageData.Replies.filter(
 				(reply) => reply.id > threadState.lastReplyId,
