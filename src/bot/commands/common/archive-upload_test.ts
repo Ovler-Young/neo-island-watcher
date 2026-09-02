@@ -1,4 +1,9 @@
-import { SplitZipWriter, type ZipArchiveBatch } from "../../../export/zip.ts";
+import {
+	ArchiveCapState,
+	SplitZipWriter,
+	TELEGRAM_ARCHIVE_MAX_BYTES,
+	type ZipArchiveBatch,
+} from "../../../export/zip.ts";
 import {
 	ARCHIVE_FALLBACK_CAPS,
 	uploadArchivesAdaptively,
@@ -26,6 +31,7 @@ async function createBatch(
 Deno.test("adaptive archive upload advances through meaningful fallback caps", async () => {
 	const directory = await Deno.makeTempDir();
 	const logs: string[] = [];
+	const capState = new ArchiveCapState();
 	try {
 		const batch = await createBatch(
 			directory,
@@ -49,6 +55,7 @@ Deno.test("adaptive archive upload advances through meaningful fallback caps", a
 				log: (message) => logs.push(message),
 			},
 			[500, 300, 200],
+			{ capState },
 		);
 
 		assert(!result.uploadFailed, "upload should recover");
@@ -56,6 +63,64 @@ Deno.test("adaptive archive upload advances through meaningful fallback caps", a
 			logs.filter((line) => line.startsWith("Repartitioning")).join("|") ===
 				"Repartitioning remaining archives with cap 500 bytes|Repartitioning remaining archives with cap 300 bytes",
 			"fallback sequence differed",
+		);
+		assert(capState.get() === 300, "successful fallback cap was not learned");
+
+		const nextBatch = await createBatch(
+			directory,
+			[
+				["next-one.txt", 100],
+				["next-two.txt", 100],
+			],
+			capState.get(),
+		);
+		try {
+			assert(
+				nextBatch.archives.length === 2,
+				"next archive batch did not start with the learned cap",
+			);
+		} finally {
+			await nextBatch.cleanup();
+		}
+	} finally {
+		await Deno.remove(directory, { recursive: true }).catch(() => {});
+	}
+});
+
+Deno.test("archive cap only decreases after a successful fallback upload", async () => {
+	const directory = await Deno.makeTempDir();
+	const capState = new ArchiveCapState();
+	try {
+		const batch = await createBatch(directory, [["one.txt", 100]], 500);
+		await uploadArchivesAdaptively(
+			batch,
+			directory,
+			"export",
+			{
+				upload: () => Promise.reject(new Error("upload failed")),
+				replyFailure: () => Promise.resolve(),
+				log: () => {},
+			},
+			[300],
+			{ capState },
+		);
+		assert(
+			capState.get() === TELEGRAM_ARCHIVE_MAX_BYTES,
+			"an unsuccessful fallback altered the cap",
+		);
+
+		await Promise.all([
+			Promise.resolve().then(() => capState.publishSuccessfulFallback(100)),
+			Promise.resolve().then(() => capState.publishSuccessfulFallback(50)),
+			Promise.resolve().then(() => capState.publishSuccessfulFallback(80)),
+		]);
+		assert(
+			capState.get() === 50,
+			"concurrent lowerings did not keep the minimum",
+		);
+		assert(
+			new ArchiveCapState().get() === TELEGRAM_ARCHIVE_MAX_BYTES,
+			"fresh cap state did not use the default",
 		);
 	} finally {
 		await Deno.remove(directory, { recursive: true }).catch(() => {});
@@ -118,6 +183,35 @@ Deno.test("adaptive archive upload does not resend a delivered part", async () =
 				`temporary archive was not removed: ${path}`,
 			);
 		}
+	} finally {
+		await Deno.remove(directory, { recursive: true }).catch(() => {});
+	}
+});
+
+Deno.test("adaptive archive upload continues part numbering", async () => {
+	const directory = await Deno.makeTempDir();
+	const filenames: string[] = [];
+	const capState = new ArchiveCapState();
+	try {
+		const batch = await createBatch(directory, [["one.txt", 10]], 200);
+		const result = await uploadArchivesAdaptively(
+			batch,
+			directory,
+			"export",
+			{
+				upload: (_archive, filename) => {
+					filenames.push(filename);
+					return Promise.resolve();
+				},
+				replyFailure: () => Promise.resolve(),
+				log: () => {},
+			},
+			[],
+			{ startPart: 7, initialFallbackCap: 200, capState },
+		);
+		assert(filenames.join(",") === "export_part_7.zip", "wrong part number");
+		assert(result.nextPart === 8, "next part was not returned");
+		assert(capState.get() === 200, "initial fallback cap was not learned");
 	} finally {
 		await Deno.remove(directory, { recursive: true }).catch(() => {});
 	}

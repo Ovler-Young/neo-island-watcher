@@ -2,9 +2,68 @@ import {
 	downloadAndReplaceImages,
 	type ImageProgress,
 } from "./image-processor.ts";
+import { renderThreadMarkdown } from "./markdown-document.ts";
 import { isPandocAvailable } from "./pdf.ts";
 
 export type EpubProgress = ImageProgress;
+
+export interface EpubVolume {
+	data: Uint8Array;
+}
+
+export interface EpubVolumeResult {
+	volumes: EpubVolume[];
+	oversizedSectionIndexes: number[];
+}
+
+type EpubRenderer = (
+	markdown: string,
+	title: string,
+) => Promise<Uint8Array | null>;
+
+export async function generateEpubVolumes(
+	preamble: string,
+	sections: readonly string[],
+	title: string,
+	maxBytes: number,
+	render: EpubRenderer = generateEpub,
+): Promise<EpubVolumeResult> {
+	const volumes: EpubVolume[] = [];
+	const oversizedSectionIndexes: number[] = [];
+
+	async function renderCandidate(
+		start: number,
+		end: number,
+	): Promise<Uint8Array | null> {
+		const data = await render(
+			renderThreadMarkdown(preamble, sections.slice(start, end)),
+			title,
+		);
+		if (!data) {
+			throw new Error("EPUB volume conversion failed");
+		}
+		return data.length <= maxBytes ? data : null;
+	}
+
+	async function renderRange(start: number, end: number): Promise<void> {
+		const data = await renderCandidate(start, end);
+		if (data) {
+			volumes.push({ data });
+			return;
+		}
+		if (end - start === 1) {
+			oversizedSectionIndexes.push(start);
+			return;
+		}
+
+		const middle = start + Math.floor((end - start) / 2);
+		await renderRange(start, middle);
+		await renderRange(middle, end);
+	}
+
+	if (sections.length > 0) await renderRange(0, sections.length);
+	return { volumes, oversizedSectionIndexes };
+}
 
 /**
  * Convert markdown to EPUB using pandoc.

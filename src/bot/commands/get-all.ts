@@ -1,11 +1,14 @@
 import type { Context } from "grammy";
 
-import { generateEpub } from "../../export/epub.ts";
+import { generateEpub, generateEpubVolumes } from "../../export/epub.ts";
 import { generatePdf } from "../../export/pdf.ts";
-import { SplitZipWriter } from "../../export/zip.ts";
+import { archiveCapState, SplitZipWriter } from "../../export/zip.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
-import { uploadArchivesAdaptively } from "./common/archive-upload.ts";
+import {
+	ARCHIVE_FALLBACK_CAPS,
+	uploadArchivesAdaptively,
+} from "./common/archive-upload.ts";
 import { fetchThreadById } from "./common/fetch-thread.ts";
 import { sendDocumentFromPath } from "./common/file-utils.ts";
 import { createStatusUpdater } from "./common/status-updater.ts";
@@ -44,7 +47,20 @@ export function parseGetBatchRequest(match: unknown): BatchRequest {
 interface ExportVariant {
 	name: "filtered" | "all";
 	markdown: string;
+	preamble: string;
+	sections: string[];
 }
+
+interface EpubRecovery {
+	entryName: string;
+	title: string;
+	preamble: string;
+	sections: string[];
+}
+
+const EPUB_VOLUME_ZIP_CAP = ARCHIVE_FALLBACK_CAPS.at(-1) ?? 40_000_000;
+// Leave room for the local and central ZIP headers around one stored EPUB.
+const EPUB_VOLUME_MAX_BYTES = EPUB_VOLUME_ZIP_CAP - 4_096;
 
 async function generateExport(
 	title: string,
@@ -78,11 +94,12 @@ export async function handleGetAll(
 		return;
 	}
 
-	const archive = new SplitZipWriter(TEMP_DIR);
+	const archive = new SplitZipWriter(TEMP_DIR, archiveCapState.get());
 	let added = 0;
 	let unavailable = 0;
 	let oversized = 0;
 	let failedThreads = 0;
+	const epubRecoveries = new Map<string, EpubRecovery>();
 
 	try {
 		for (const [index, threadId] of threadIds.entries()) {
@@ -99,10 +116,20 @@ export async function handleGetAll(
 			const updater = createStatusUpdater(ctx.api, chatId, result.statusMsg);
 			try {
 				const variants: ExportVariant[] = [
-					{ name: "filtered", markdown: result.filteredMarkdown },
+					{
+						name: "filtered",
+						markdown: result.filteredMarkdown,
+						preamble: result.filteredPreamble,
+						sections: result.filteredSections,
+					},
 				];
-				if (result.allMarkdown) {
-					variants.push({ name: "all", markdown: result.allMarkdown });
+				if (result.allMarkdown && result.allPreamble && result.allSections) {
+					variants.push({
+						name: "all",
+						markdown: result.allMarkdown,
+						preamble: result.allPreamble,
+						sections: result.allSections,
+					});
 				}
 
 				for (const variant of variants) {
@@ -132,9 +159,18 @@ export async function handleGetAll(
 							variant.name,
 							format,
 						);
-						if (await archive.add(`${threadId}/${filename}`, data)) {
+						const entryName = `${threadId}/${filename}`;
+						if (format === "epub") {
+							epubRecoveries.set(entryName, {
+								entryName,
+								title: result.title,
+								preamble: variant.preamble,
+								sections: variant.sections,
+							});
+						}
+						if (await archive.add(entryName, data)) {
 							added++;
-						} else {
+						} else if (format !== "epub") {
 							oversized++;
 						}
 					}
@@ -145,7 +181,7 @@ export async function handleGetAll(
 		}
 
 		const archives = await archive.finish();
-		if (archives.length === 0 || added === 0) {
+		if ((archives.length === 0 || added === 0) && epubRecoveries.size === 0) {
 			const reasons: string[] = [];
 			if (unavailable > 0) reasons.push("the requested conversions failed");
 			if (oversized > 0) reasons.push("the generated files were too large");
@@ -183,8 +219,92 @@ export async function handleGetAll(
 				},
 			},
 		);
-		oversized += uploadResult.omittedEntries.length;
+		const omittedEpubEntries = uploadResult.omittedEntries.filter((entry) =>
+			epubRecoveries.has(entry),
+		);
+		const epubEntriesToRecover = new Set(omittedEpubEntries);
+		for (const [entryName] of epubRecoveries) {
+			if (
+				!archives.some((item) =>
+					item.entries.some((entry) => entry.name === entryName),
+				)
+			) {
+				epubEntriesToRecover.add(entryName);
+			}
+		}
+		oversized += uploadResult.omittedEntries.length - omittedEpubEntries.length;
 		if (uploadResult.uploadFailed) return;
+
+		let recoveredEpubs = 0;
+		let indivisibleChapters = 0;
+		if (epubEntriesToRecover.size > 0) {
+			const volumeArchive = new SplitZipWriter(TEMP_DIR, EPUB_VOLUME_ZIP_CAP);
+			let volumeEntries = 0;
+			try {
+				for (const entryName of epubEntriesToRecover) {
+					const recovery = epubRecoveries.get(entryName);
+					if (!recovery) continue;
+					try {
+						const result = await generateEpubVolumes(
+							recovery.preamble,
+							recovery.sections,
+							recovery.title,
+							EPUB_VOLUME_MAX_BYTES,
+						);
+						indivisibleChapters += result.oversizedSectionIndexes.length;
+						const baseName = recovery.entryName.slice(0, -".epub".length);
+						for (const [index, volume] of result.volumes.entries()) {
+							const volumeName = `${baseName}_volume_${String(
+								index + 1,
+							).padStart(3, "0")}.epub`;
+							if (await volumeArchive.add(volumeName, volume.data)) {
+								volumeEntries++;
+							} else {
+								throw new Error(
+									`EPUB volume exceeded ZIP framing limit: ${volumeName}`,
+								);
+							}
+						}
+						if (result.volumes.length > 0) recoveredEpubs++;
+					} catch (error) {
+						console.error(
+							`Failed to generate EPUB volumes for ${entryName}:`,
+							error,
+						);
+						unavailable++;
+					}
+				}
+
+				const volumeArchives = await volumeArchive.finish();
+				if (volumeEntries > 0) {
+					const recoveryUpload = await uploadArchivesAdaptively(
+						{
+							archives: volumeArchives,
+							cleanup: () => volumeArchive.cleanup(),
+						},
+						TEMP_DIR,
+						`chat_${chatId}_threads`,
+						{
+							upload: (item, filename) =>
+								sendDocumentFromPath(ctx, item.path, filename),
+							replyFailure: async (remainingEntries) => {
+								await ctx.reply(
+									`❌ EPUB volume upload failed; ${remainingEntries} chapter volumes could not be delivered.`,
+								);
+							},
+						},
+						ARCHIVE_FALLBACK_CAPS,
+						{
+							startPart: uploadResult.nextPart,
+							initialFallbackCap: EPUB_VOLUME_ZIP_CAP,
+						},
+					);
+					if (recoveryUpload.uploadFailed) return;
+				}
+			} finally {
+				await volumeArchive.cleanup();
+			}
+		}
 
 		const omissions: string[] = [];
 		if (unavailable > 0) {
@@ -197,6 +317,16 @@ export async function handleGetAll(
 		}
 		if (failedThreads > 0) {
 			omissions.push(`${failedThreads} threads could not be fetched`);
+		}
+		if (recoveredEpubs > 0) {
+			await ctx.reply(
+				`ℹ️ ${recoveredEpubs} large EPUB exports were delivered as independent chapter-based volumes.`,
+			);
+		}
+		if (indivisibleChapters > 0) {
+			await ctx.reply(
+				`⚠️ ${indivisibleChapters} individual EPUB chapters were too large to deliver; adjacent chapter volumes were still included.`,
+			);
 		}
 		if (omissions.length > 0) {
 			await ctx.reply(`⚠️ Archive completed with ${omissions.join(", ")}.`);

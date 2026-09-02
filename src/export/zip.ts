@@ -1,5 +1,20 @@
 export const TELEGRAM_ARCHIVE_MAX_BYTES = 1_900_000_000;
 
+export class ArchiveCapState {
+	private cap = TELEGRAM_ARCHIVE_MAX_BYTES;
+
+	get(): number {
+		return this.cap;
+	}
+
+	publishSuccessfulFallback(cap: number): number {
+		this.cap = Math.min(this.cap, cap);
+		return this.cap;
+	}
+}
+
+export const archiveCapState = new ArchiveCapState();
+
 export interface ZipArchive {
 	path: string;
 	size: number;

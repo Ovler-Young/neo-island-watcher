@@ -1,4 +1,6 @@
 import {
+	type ArchiveCapState,
+	archiveCapState,
 	repartitionZipArchives,
 	type ZipArchive,
 	type ZipArchiveBatch,
@@ -20,6 +22,13 @@ interface ArchiveUploadHooks {
 export interface ArchiveUploadResult {
 	omittedEntries: string[];
 	uploadFailed: boolean;
+	nextPart: number;
+}
+
+interface ArchiveUploadOptions {
+	startPart?: number;
+	capState?: ArchiveCapState;
+	initialFallbackCap?: number;
 }
 
 export async function uploadArchivesAdaptively(
@@ -28,11 +37,14 @@ export async function uploadArchivesAdaptively(
 	filenamePrefix: string,
 	hooks: ArchiveUploadHooks,
 	fallbackCaps: readonly number[] = ARCHIVE_FALLBACK_CAPS,
+	options: ArchiveUploadOptions = {},
 ): Promise<ArchiveUploadResult> {
+	const capState = options.capState ?? archiveCapState;
 	let currentBatch = initialBatch;
 	let remaining = [...currentBatch.archives];
 	let fallbackIndex = 0;
-	let nextPart = 1;
+	let nextPart = options.startPart ?? 1;
+	let activeFallbackCap = options.initialFallbackCap;
 	const omittedEntries: string[] = [];
 	const log = hooks.log ?? console.log;
 
@@ -43,6 +55,9 @@ export async function uploadArchivesAdaptively(
 			log(`Uploading archive ${filename} (${archive.size} bytes)`);
 			try {
 				await hooks.upload(archive, filename);
+				if (activeFallbackCap !== undefined) {
+					capState.publishSuccessfulFallback(activeFallbackCap);
+				}
 				remaining.shift();
 				nextPart++;
 				continue;
@@ -65,7 +80,7 @@ export async function uploadArchivesAdaptively(
 					0,
 				);
 				await hooks.replyFailure(remainingEntries, omittedEntries.length);
-				return { omittedEntries, uploadFailed: true };
+				return { omittedEntries, uploadFailed: true, nextPart };
 			}
 
 			log(`Repartitioning remaining archives with cap ${nextCap} bytes`);
@@ -78,9 +93,10 @@ export async function uploadArchivesAdaptively(
 			await currentBatch.cleanup();
 			currentBatch = replacement;
 			remaining = [...replacement.archives];
+			activeFallbackCap = nextCap;
 		}
 
-		return { omittedEntries, uploadFailed: false };
+		return { omittedEntries, uploadFailed: false, nextPart };
 	} finally {
 		await currentBatch.cleanup();
 	}

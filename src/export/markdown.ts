@@ -3,6 +3,7 @@ import { xdnmbClient } from "../api/xdnmb.ts";
 import { config } from "../config.ts";
 import { shouldSendReply } from "../services/reply-sender.ts";
 import type { ThreadStateData } from "../storage/thread-state.ts";
+import { renderThreadMarkdown } from "./markdown-document.ts";
 
 // Fast synchronous content processing for markdown
 function processContentFast(content: string): string {
@@ -104,6 +105,8 @@ export async function formatThreadAsMarkdown(
 	formattedTitle?: string,
 ): Promise<{
 	markdown: string;
+	preamble: string;
+	sections: string[];
 	threadData: ThreadData;
 }> {
 	const normalizedThreadId = Number(threadId);
@@ -121,10 +124,8 @@ export async function formatThreadAsMarkdown(
 	}
 
 	// 3. Format thread header
-	let content = `# ${threadData.title}\n\n`;
-
-	content += formatThreadMessageMarkdown(threadData);
-	content += "\n\n---\n\n";
+	const preamble = `# ${threadData.title}\n\n`;
+	const sections = [formatThreadMessageMarkdown(threadData)];
 	// Process replies
 	const repliesPerPage = 19;
 	for (let i = 0; i < threadData.Replies.length; i++) {
@@ -132,13 +133,15 @@ export async function formatThreadAsMarkdown(
 		const page = Math.floor(i / repliesPerPage) + 1;
 
 		if (shouldSendReply(reply, threadState)) {
-			content += formatReplyMessageMarkdown(reply, threadIdStr, page);
-			content += "\n\n---\n\n";
+			sections.push(formatReplyMessageMarkdown(reply, threadIdStr, page));
 		}
 	}
+	const content = renderThreadMarkdown(preamble, sections);
 
 	return {
 		markdown: content,
+		preamble,
+		sections,
 		threadData,
 	};
 }

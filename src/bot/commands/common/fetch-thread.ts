@@ -12,7 +12,11 @@ export interface ThreadFetchResult {
 	title: string;
 	threadState: ThreadStateData;
 	filteredMarkdown: string;
+	filteredPreamble: string;
+	filteredSections: string[];
 	allMarkdown?: string;
+	allPreamble?: string;
+	allSections?: string[];
 	statusMsg: { message_id: number } | null;
 }
 
@@ -121,37 +125,43 @@ export async function fetchThreadById(
 			}
 		}
 
-		const { markdown: filteredMarkdown, threadData } =
-			await formatThreadAsMarkdown(
-				threadId,
-				threadState,
-				(progress: ProgressInfo) => {
-					console.log(
-						`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
-					);
-					const now = Date.now();
-					if (
-						(now - lastUpdate >= 10000 || progress.percentage === 100) &&
-						statusMsg
-					) {
-						ctx.api
-							.editMessageText(
-								chatId,
-								statusMsg.message_id,
-								`📥 ${statusPrefix} ${threadId}... Page ${progress.current}/${progress.total} (${progress.percentage}%)`,
-							)
-							.then(() => {
-								lastUpdate = now;
-							})
-							.catch((err) => {
-								console.error("Failed to update status message:", err);
-							});
-					}
-				},
-				formattedTitle,
-			);
+		const {
+			markdown: filteredMarkdown,
+			preamble: filteredPreamble,
+			sections: filteredSections,
+			threadData,
+		} = await formatThreadAsMarkdown(
+			threadId,
+			threadState,
+			(progress: ProgressInfo) => {
+				console.log(
+					`Progress callback: page ${progress.current}/${progress.total} (${progress.percentage}%)`,
+				);
+				const now = Date.now();
+				if (
+					(now - lastUpdate >= 10000 || progress.percentage === 100) &&
+					statusMsg
+				) {
+					ctx.api
+						.editMessageText(
+							chatId,
+							statusMsg.message_id,
+							`📥 ${statusPrefix} ${threadId}... Page ${progress.current}/${progress.total} (${progress.percentage}%)`,
+						)
+						.then(() => {
+							lastUpdate = now;
+						})
+						.catch((err) => {
+							console.error("Failed to update status message:", err);
+						});
+				}
+			},
+			formattedTitle,
+		);
 
 		let allMarkdown: string | undefined;
+		let allPreamble: string | undefined;
+		let allSections: string[] | undefined;
 		if (!threadState.writer.includes("*")) {
 			// Temporarily add * to writer to fetch all
 			const originalWriters = [...threadState.writer];
@@ -164,6 +174,8 @@ export async function fetchThreadById(
 				formattedTitle,
 			);
 			allMarkdown = result.markdown;
+			allPreamble = result.preamble;
+			allSections = result.sections;
 
 			// Restore writers (although we created a temp state or copy, it's safer not to mutate permanent state if we fetched it from DB,
 			// but here threadState might be from DB. Wait, getThreadState returns item from DB.
@@ -178,7 +190,11 @@ export async function fetchThreadById(
 			title: formattedTitle || threadData.title,
 			threadState,
 			filteredMarkdown,
+			filteredPreamble,
+			filteredSections,
 			allMarkdown,
+			allPreamble,
+			allSections,
 			statusMsg,
 		};
 	} catch (error) {
