@@ -67,3 +67,39 @@ export async function sendDocument(
 		await cleanupTempFile(tempPath);
 	}
 }
+
+export async function sendDocumentFromPath(
+	ctx: Context,
+	filePath: string,
+	filename: string,
+	caption?: string,
+): Promise<void> {
+	const chatId = ctx.chat?.id;
+	if (!chatId) {
+		throw new Error("No chat ID found in context");
+	}
+
+	let lastError: unknown;
+	for (let attempt = 1; attempt <= 5; attempt++) {
+		let fileHandle: Deno.FsFile | undefined;
+		try {
+			fileHandle = await Deno.open(filePath);
+			const inputFile = new InputFile(fileHandle, filename);
+			await ctx.api.sendDocument(chatId, inputFile, {
+				caption: caption || filename,
+				message_thread_id: ctx.message?.message_thread_id,
+			});
+			return;
+		} catch (error) {
+			lastError = error;
+			console.error(`Send document failed (attempt ${attempt}/5):`, error);
+		} finally {
+			try {
+				fileHandle?.close();
+			} catch {
+				// The upload may close the stream after consuming it.
+			}
+		}
+	}
+	throw lastError;
+}

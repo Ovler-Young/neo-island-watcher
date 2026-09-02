@@ -62,6 +62,20 @@ export async function fetchThread(
 		return null;
 	}
 
+	return await fetchThreadById(ctx, threadId, statusPrefix);
+}
+
+export async function fetchThreadById(
+	ctx: Context,
+	threadId: string,
+	statusPrefix: string = "Fetching thread",
+): Promise<ThreadFetchResult | null> {
+	const chatId = ctx.chat?.id;
+	if (!chatId) {
+		await ctx.reply("❌ No chat found");
+		return null;
+	}
+
 	let statusMsg: { message_id: number } | null = null;
 	let lastUpdate = 0;
 

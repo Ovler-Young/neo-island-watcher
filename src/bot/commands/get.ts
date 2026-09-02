@@ -9,12 +9,23 @@ import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { sendDocument } from "./common/file-utils.ts";
 import { createStatusUpdater } from "./common/status-updater.ts";
+import { handleGetAll, parseGetBatchRequest } from "./get-all.ts";
 
 export const get: CommandDefinition = {
 	name: "get",
-	description: "Get complete thread content (MD, PDF, EPUB, Telegraph)",
+	description: "Get thread exports or ZIP all bound threads",
 	guards: [],
 	handler: async ({ ctx }) => {
+		const batchRequest = parseGetBatchRequest(ctx.match);
+		if (batchRequest.kind === "invalid-batch") {
+			await ctx.reply("❌ Usage: /get all [epub|md|pdf]");
+			return undefined;
+		}
+		if (batchRequest.kind === "batch") {
+			await handleGetAll(ctx, batchRequest.formats);
+			return undefined;
+		}
+
 		const result = await fetchThread(ctx, "Getting thread");
 		if (!result) return;
 
