@@ -79,19 +79,9 @@ export async function sendDocumentFromPath(
 		throw new Error("No chat ID found in context");
 	}
 
-	let fileHandle: Deno.FsFile | undefined;
-	try {
-		fileHandle = await Deno.open(filePath);
-		const inputFile = new InputFile(fileHandle, filename);
-		await ctx.api.sendDocument(chatId, inputFile, {
-			caption: caption || filename,
-			message_thread_id: ctx.message?.message_thread_id,
-		});
-	} finally {
-		try {
-			fileHandle?.close();
-		} catch {
-			// The upload may close the stream after consuming it.
-		}
-	}
+	const inputFile = new InputFile(filePath, filename);
+	await ctx.api.sendDocument(chatId, inputFile, {
+		caption: caption || filename,
+		message_thread_id: ctx.message?.message_thread_id,
+	});
 }
