@@ -33,6 +33,7 @@ export async function convertMarkdownToPdf(
 				"-t",
 				"pdf",
 				"--pdf-engine=typst",
+				"--pdf-engine-opt=--root=/",
 				"-V",
 				"geometry:margin=1in",
 				"-V",
