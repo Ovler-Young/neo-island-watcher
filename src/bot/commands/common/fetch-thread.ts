@@ -22,6 +22,7 @@ export interface ThreadFetchResult {
 export async function fetchThread(
 	ctx: Context,
 	statusPrefix: string = "Fetching thread",
+	explicitThreadId?: string,
 ): Promise<ThreadFetchResult | null> {
 	const chatId = ctx.chat?.id;
 	if (!chatId) {
@@ -33,8 +34,9 @@ export async function fetchThread(
 	let threadId: string | undefined;
 
 	// Check arguments first
-	if (ctx.match) {
-		const matchStr = String(ctx.match);
+	const threadIdArgument = explicitThreadId ?? ctx.match;
+	if (threadIdArgument) {
+		const matchStr = String(threadIdArgument);
 		if (/^\d+$/.test(matchStr)) {
 			threadId = matchStr;
 		}

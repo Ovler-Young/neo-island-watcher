@@ -14,9 +14,18 @@ import { handleGetAll, parseGetBatchRequest } from "./get-all.ts";
 export const get: CommandDefinition = {
 	name: "get",
 	description: "Get thread exports or ZIP all bound threads",
+	params: [
+		{
+			name: "request",
+			type: "string",
+			description: "Thread ID or all [epub|md|pdf]",
+		},
+	],
 	guards: [],
-	handler: async ({ ctx }) => {
-		const batchRequest = parseGetBatchRequest(ctx.match);
+	handler: async ({ ctx, params }) => {
+		const request =
+			typeof params.request === "string" ? params.request : undefined;
+		const batchRequest = parseGetBatchRequest(request);
 		if (batchRequest.kind === "invalid-batch") {
 			await ctx.reply("❌ Usage: /get all [epub|md|pdf]");
 			return undefined;
@@ -26,7 +35,7 @@ export const get: CommandDefinition = {
 			return undefined;
 		}
 
-		const result = await fetchThread(ctx, "Getting thread");
+		const result = await fetchThread(ctx, "Getting thread", request);
 		if (!result) return;
 
 		const { threadId, title, filteredMarkdown, allMarkdown, statusMsg } =
