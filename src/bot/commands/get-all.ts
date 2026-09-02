@@ -5,6 +5,7 @@ import { generatePdf } from "../../export/pdf.ts";
 import { SplitZipWriter } from "../../export/zip.ts";
 import { groupBindings } from "../../storage/group-bindings.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
+import { uploadArchivesAdaptively } from "./common/archive-upload.ts";
 import { fetchThreadById } from "./common/fetch-thread.ts";
 import { sendDocumentFromPath } from "./common/file-utils.ts";
 import { createStatusUpdater } from "./common/status-updater.ts";
@@ -148,8 +149,9 @@ export async function handleGetAll(
 			const reasons: string[] = [];
 			if (unavailable > 0) reasons.push("the requested conversions failed");
 			if (oversized > 0) reasons.push("the generated files were too large");
-			if (failedThreads > 0)
+			if (failedThreads > 0) {
 				reasons.push("the bound threads could not be fetched");
+			}
 			const toolingHint =
 				unavailable > 0 &&
 				formats.some((format) => format === "pdf" || format === "epub")
@@ -163,19 +165,35 @@ export async function handleGetAll(
 			return;
 		}
 
-		for (const [index, item] of archives.entries()) {
-			const suffix =
-				archives.length > 1 ? `_part_${index + 1}_of_${archives.length}` : "";
-			const filename = `chat_${chatId}_threads${suffix}.zip`;
-			await sendDocumentFromPath(ctx, item.path, filename);
-		}
+		const uploadResult = await uploadArchivesAdaptively(
+			{ archives, cleanup: () => archive.cleanup() },
+			TEMP_DIR,
+			`chat_${chatId}_threads`,
+			{
+				upload: (item, filename) =>
+					sendDocumentFromPath(ctx, item.path, filename),
+				replyFailure: async (remainingEntries, omittedEntries) => {
+					const omitted =
+						omittedEntries > 0
+							? ` ${omittedEntries} additional exports could not fit the smaller archive limit.`
+							: "";
+					await ctx.reply(
+						`❌ Archive upload failed even after smaller parts; ${remainingEntries} exports could not be delivered.${omitted}`,
+					);
+				},
+			},
+		);
+		oversized += uploadResult.omittedEntries.length;
+		if (uploadResult.uploadFailed) return;
 
 		const omissions: string[] = [];
 		if (unavailable > 0) {
 			omissions.push(`${unavailable} exports unavailable`);
 		}
 		if (oversized > 0) {
-			omissions.push(`${oversized} files exceeded the archive size limit`);
+			omissions.push(
+				`${oversized} exports could not fit an archive size limit`,
+			);
 		}
 		if (failedThreads > 0) {
 			omissions.push(`${failedThreads} threads could not be fetched`);

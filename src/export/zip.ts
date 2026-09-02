@@ -3,13 +3,35 @@ export const TELEGRAM_ARCHIVE_MAX_BYTES = 1_900_000_000;
 export interface ZipArchive {
 	path: string;
 	size: number;
+	entries: ZipArchiveEntry[];
+}
+
+export interface ZipArchiveEntry {
+	name: string;
+	sourcePath: string;
+	dataOffset: number;
+	size: number;
+	crc32: number;
+	dosDate: number;
+	dosTime: number;
+}
+
+export interface ZipArchiveBatch {
+	archives: ZipArchive[];
+	cleanup: () => Promise<void>;
+}
+
+export interface RepartitionedZipBatch extends ZipArchiveBatch {
+	omittedEntries: string[];
 }
 
 interface CentralDirectoryEntry {
+	textName: string;
 	name: Uint8Array;
 	crc32: number;
 	size: number;
 	offset: number;
+	dataOffset: number;
 	dosDate: number;
 	dosTime: number;
 }
@@ -41,6 +63,30 @@ async function writeAll(file: Deno.FsFile, data: Uint8Array): Promise<void> {
 		const written = await file.write(data.subarray(offset));
 		if (written === 0) throw new Error("Unable to write ZIP data");
 		offset += written;
+	}
+}
+
+async function copyStoredData(
+	destination: Deno.FsFile,
+	entry: ZipArchiveEntry,
+): Promise<void> {
+	const source = await Deno.open(entry.sourcePath, { read: true });
+	try {
+		await source.seek(entry.dataOffset, Deno.SeekMode.Start);
+		const buffer = new Uint8Array(Math.min(entry.size, 1024 * 1024));
+		let remaining = entry.size;
+		while (remaining > 0) {
+			const read = await source.read(
+				buffer.subarray(0, Math.min(buffer.length, remaining)),
+			);
+			if (read === null) {
+				throw new Error(`Unexpected end of ZIP entry: ${entry.name}`);
+			}
+			await writeAll(destination, buffer.subarray(0, read));
+			remaining -= read;
+		}
+	} finally {
+		source.close();
 	}
 }
 
@@ -150,22 +196,59 @@ class ZipPartWriter {
 		);
 	}
 
-	async add(name: Uint8Array, data: Uint8Array): Promise<void> {
+	async add(
+		name: string,
+		encodedName: Uint8Array,
+		data: Uint8Array,
+	): Promise<void> {
 		const crc32 = calculateCrc32(data);
 		const { dosDate, dosTime } = getDosTimestamp();
-		const header = localHeader(name, crc32, data.length, dosDate, dosTime);
+		const header = localHeader(
+			encodedName,
+			crc32,
+			data.length,
+			dosDate,
+			dosTime,
+		);
 		const offset = this.bytesWritten;
 		await writeAll(this.file, header);
 		await writeAll(this.file, data);
 		this.bytesWritten += header.length + data.length;
-		this.centralDirectorySize += 46 + name.length;
+		this.centralDirectorySize += 46 + encodedName.length;
 		this.entries.push({
-			name,
+			textName: name,
+			name: encodedName,
 			crc32,
 			size: data.length,
 			offset,
+			dataOffset: offset + header.length,
 			dosDate,
 			dosTime,
+		});
+	}
+
+	async addStored(entry: ZipArchiveEntry, name: Uint8Array): Promise<void> {
+		const header = localHeader(
+			name,
+			entry.crc32,
+			entry.size,
+			entry.dosDate,
+			entry.dosTime,
+		);
+		const offset = this.bytesWritten;
+		await writeAll(this.file, header);
+		await copyStoredData(this.file, entry);
+		this.bytesWritten += header.length + entry.size;
+		this.centralDirectorySize += 46 + name.length;
+		this.entries.push({
+			textName: entry.name,
+			name,
+			crc32: entry.crc32,
+			size: entry.size,
+			offset,
+			dataOffset: offset + header.length,
+			dosDate: entry.dosDate,
+			dosTime: entry.dosTime,
 		});
 	}
 
@@ -189,7 +272,19 @@ class ZipPartWriter {
 		if (size > this.maxBytes) {
 			throw new Error(`Finalized ZIP exceeds ${this.maxBytes} bytes`);
 		}
-		return { path: this.path, size };
+		return {
+			path: this.path,
+			size,
+			entries: this.entries.map((entry) => ({
+				name: entry.textName,
+				sourcePath: this.path,
+				dataOffset: entry.dataOffset,
+				size: entry.size,
+				crc32: entry.crc32,
+				dosDate: entry.dosDate,
+				dosTime: entry.dosTime,
+			})),
+		};
 	}
 
 	close(): void {
@@ -238,8 +333,31 @@ export class SplitZipWriter {
 
 		const current = this.current;
 		if (!current) throw new Error("ZIP part was not initialized");
-		await current.add(encodedName, data);
+		await current.add(name, encodedName, data);
 		this.entryNames.add(name);
+		return true;
+	}
+
+	async addStored(entry: ZipArchiveEntry): Promise<boolean> {
+		if (this.entryNames.has(entry.name)) {
+			throw new Error(`Duplicate ZIP entry: ${entry.name}`);
+		}
+		const encodedName = encoder.encode(entry.name);
+
+		if (!this.current) await this.openPart();
+		if (!this.current?.canAdd(encodedName, entry.size)) {
+			if (this.current && this.current.entryCount > 0) {
+				this.archives.push(await this.current.finish());
+				this.current = null;
+				await this.openPart();
+			}
+			if (!this.current?.canAdd(encodedName, entry.size)) return false;
+		}
+
+		const current = this.current;
+		if (!current) throw new Error("ZIP part was not initialized");
+		await current.addStored(entry, encodedName);
+		this.entryNames.add(entry.name);
 		return true;
 	}
 
@@ -264,5 +382,29 @@ export class SplitZipWriter {
 		const path = `${this.directory}/thread-export-${crypto.randomUUID()}.zip`;
 		this.paths.push(path);
 		this.current = new ZipPartWriter(path, this.maxBytes);
+	}
+}
+
+export async function repartitionZipArchives(
+	archives: ZipArchive[],
+	directory: string,
+	maxBytes: number,
+): Promise<RepartitionedZipBatch> {
+	const writer = new SplitZipWriter(directory, maxBytes);
+	const omittedEntries: string[] = [];
+	try {
+		for (const archive of archives) {
+			for (const entry of archive.entries) {
+				if (!(await writer.addStored(entry))) omittedEntries.push(entry.name);
+			}
+		}
+		return {
+			archives: await writer.finish(),
+			omittedEntries,
+			cleanup: () => writer.cleanup(),
+		};
+	} catch (error) {
+		await writer.cleanup();
+		throw error;
 	}
 }
