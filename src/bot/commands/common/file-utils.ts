@@ -1,19 +1,22 @@
 import { ensureDir } from "@std/fs";
-import { join } from "@std/path";
 import { type Context, InputFile } from "grammy";
 
 const TEMP_DIR = "data/temp";
 
-/**
- * Save buffer to temp file and return the file path.
- * This is used for large files to avoid multipart form issues.
- */
-export async function saveTempFile(
+/** Write bytes to a temporary path that grammY can reopen for each retry. */
+async function saveTempFile(
 	buffer: Uint8Array,
 	filename: string,
 ): Promise<string> {
 	await ensureDir(TEMP_DIR);
-	const filePath = join(TEMP_DIR, filename);
+	const suffix = filename.includes(".")
+		? `.${filename.split(".").at(-1)}`
+		: undefined;
+	const filePath = await Deno.makeTempFile({
+		dir: TEMP_DIR,
+		prefix: "document-",
+		suffix,
+	});
 	await Deno.writeFile(filePath, buffer);
 	console.log(`Saved temp file: ${filePath} (${buffer.length} bytes)`);
 	return filePath;
@@ -22,7 +25,7 @@ export async function saveTempFile(
 /**
  * Clean up temp file after sending.
  */
-export async function cleanupTempFile(filePath: string): Promise<void> {
+async function cleanupTempFile(filePath: string): Promise<void> {
 	try {
 		await Deno.remove(filePath);
 		console.log(`Cleaned up temp file: ${filePath}`);
@@ -31,9 +34,7 @@ export async function cleanupTempFile(filePath: string): Promise<void> {
 	}
 }
 
-/**
- * Helper to save buffer to temp file, send it, and then clean up.
- */
+/** Send buffer contents through a replayable path source and remove that source. */
 export async function sendDocument(
 	ctx: Context,
 	buffer: Uint8Array,
@@ -47,22 +48,7 @@ export async function sendDocument(
 			throw new Error("No chat ID found in context");
 		}
 
-		let lastError: unknown;
-		for (let attempt = 1; attempt <= 5; attempt++) {
-			try {
-				const fileHandle = await Deno.open(tempPath);
-				const inputFile = new InputFile(fileHandle, filename);
-				await ctx.api.sendDocument(chatId, inputFile, {
-					caption: caption || filename,
-					message_thread_id: ctx.message?.message_thread_id,
-				});
-				return; // Success, exit function
-			} catch (error) {
-				lastError = error;
-				console.error(`Send document failed (attempt ${attempt}/5):`, error);
-			}
-		}
-		throw lastError; // Re-throw last error if all attempts fail
+		await sendDocumentFromPath(ctx, tempPath, filename, caption);
 	} finally {
 		await cleanupTempFile(tempPath);
 	}

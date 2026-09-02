@@ -31,6 +31,12 @@ Deno.test("EPUB volumes preserve whole sections in order", async () => {
 		"section identities were lost or reordered",
 	);
 	assert(
+		result.volumes
+			.map((volume) => `${volume.startSection}:${volume.endSection}`)
+			.join(",") === "0:1,1:2,2:3,3:4",
+		"volume section ranges differed",
+	);
+	assert(
 		renderedMarkdown.every((markdown) => markdown.startsWith("# Thread\n\n")),
 		"thread preamble was not repeated",
 	);

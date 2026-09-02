@@ -9,6 +9,8 @@ export type EpubProgress = ImageProgress;
 
 export interface EpubVolume {
 	data: Uint8Array;
+	startSection: number;
+	endSection: number;
 }
 
 export interface EpubVolumeResult {
@@ -27,6 +29,7 @@ export async function generateEpubVolumes(
 	title: string,
 	maxBytes: number,
 	render: EpubRenderer = generateEpub,
+	sectionOffset = 0,
 ): Promise<EpubVolumeResult> {
 	const volumes: EpubVolume[] = [];
 	const oversizedSectionIndexes: number[] = [];
@@ -48,11 +51,15 @@ export async function generateEpubVolumes(
 	async function renderRange(start: number, end: number): Promise<void> {
 		const data = await renderCandidate(start, end);
 		if (data) {
-			volumes.push({ data });
+			volumes.push({
+				data,
+				startSection: sectionOffset + start,
+				endSection: sectionOffset + end,
+			});
 			return;
 		}
 		if (end - start === 1) {
-			oversizedSectionIndexes.push(start);
+			oversizedSectionIndexes.push(sectionOffset + start);
 			return;
 		}
 

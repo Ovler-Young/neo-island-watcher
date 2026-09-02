@@ -13,7 +13,7 @@ import { handleGetAll, parseGetBatchRequest } from "./get-all.ts";
 
 export const get: CommandDefinition = {
 	name: "get",
-	description: "Get thread exports or ZIP all bound threads",
+	description: "Get thread exports or all bound threads",
 	params: [
 		{
 			name: "request",
