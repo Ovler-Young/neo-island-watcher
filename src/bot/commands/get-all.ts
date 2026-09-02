@@ -296,7 +296,6 @@ export async function handleGetAll(
 						ARCHIVE_FALLBACK_CAPS,
 						{
 							startPart: uploadResult.nextPart,
-							initialFallbackCap: EPUB_VOLUME_ZIP_CAP,
 						},
 					);
 					if (recoveryUpload.uploadFailed) return;

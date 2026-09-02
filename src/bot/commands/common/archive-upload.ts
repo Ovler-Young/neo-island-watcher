@@ -28,7 +28,6 @@ export interface ArchiveUploadResult {
 interface ArchiveUploadOptions {
 	startPart?: number;
 	capState?: ArchiveCapState;
-	initialFallbackCap?: number;
 }
 
 export async function uploadArchivesAdaptively(
@@ -44,7 +43,7 @@ export async function uploadArchivesAdaptively(
 	let remaining = [...currentBatch.archives];
 	let fallbackIndex = 0;
 	let nextPart = options.startPart ?? 1;
-	let activeFallbackCap = options.initialFallbackCap;
+	let activeFallbackCap: number | undefined;
 	const omittedEntries: string[] = [];
 	const log = hooks.log ?? console.log;
 

@@ -188,7 +188,7 @@ Deno.test("adaptive archive upload does not resend a delivered part", async () =
 	}
 });
 
-Deno.test("adaptive archive upload continues part numbering", async () => {
+Deno.test("a successful small initial batch does not lower the archive cap", async () => {
 	const directory = await Deno.makeTempDir();
 	const filenames: string[] = [];
 	const capState = new ArchiveCapState();
@@ -207,11 +207,14 @@ Deno.test("adaptive archive upload continues part numbering", async () => {
 				log: () => {},
 			},
 			[],
-			{ startPart: 7, initialFallbackCap: 200, capState },
+			{ startPart: 7, capState },
 		);
 		assert(filenames.join(",") === "export_part_7.zip", "wrong part number");
 		assert(result.nextPart === 8, "next part was not returned");
-		assert(capState.get() === 200, "initial fallback cap was not learned");
+		assert(
+			capState.get() === TELEGRAM_ARCHIVE_MAX_BYTES,
+			"a caller-selected initial cap was incorrectly learned",
+		);
 	} finally {
 		await Deno.remove(directory, { recursive: true }).catch(() => {});
 	}
