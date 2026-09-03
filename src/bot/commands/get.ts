@@ -1,4 +1,4 @@
-import { type Context, InputFile } from "grammy";
+import { InputFile } from "grammy";
 
 import { generateEpub } from "../../export/epub.ts";
 import { generatePdf } from "../../export/pdf.ts";
@@ -19,7 +19,9 @@ import {
 const BATCH_EXPORT_FAILURE_MESSAGE =
 	"❌ /get all failed before delivery completed. Please run the command again.";
 
-type BatchExportContext = Pick<Context, "reply">;
+type BatchExportContext = {
+	reply: (message: string) => Promise<unknown>;
+};
 
 export function createBatchExportScheduler<C extends BatchExportContext>(
 	runBatch: (ctx: C, formats: BatchExportFormat[]) => Promise<void>,
@@ -28,20 +30,20 @@ export function createBatchExportScheduler<C extends BatchExportContext>(
 
 	return (ctx, formats) => {
 		const job = tail.then(() => runBatch(ctx, formats));
-		tail = job.catch(async (error) => {
+		tail = job.catch((error) => {
 			const category = classifyDeliveryError(error, "conversion").category;
 			console.error(`Background /get all export failed; category=${category}`);
-			try {
-				await ctx.reply(BATCH_EXPORT_FAILURE_MESSAGE);
-			} catch (replyError) {
-				const replyCategory = classifyDeliveryError(
-					replyError,
-					"delivery",
-				).category;
-				console.error(
-					`Could not report background /get all failure; category=${replyCategory}`,
-				);
-			}
+			void Promise.resolve()
+				.then(() => ctx.reply(BATCH_EXPORT_FAILURE_MESSAGE))
+				.catch((replyError) => {
+					const replyCategory = classifyDeliveryError(
+						replyError,
+						"delivery",
+					).category;
+					console.error(
+						`Could not report background /get all failure; category=${replyCategory}`,
+					);
+				});
 		});
 	};
 }

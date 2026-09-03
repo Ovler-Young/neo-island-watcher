@@ -143,3 +143,28 @@ Deno.test("batch dispatch reports a background export rejection", async () => {
 		"background failure was not reported to the originating chat",
 	);
 });
+
+Deno.test("a pending failure notice does not block the next batch", async () => {
+	const { createBatchExportScheduler } = await import("./get.ts");
+	const replyAttempted = deferred<void>();
+	const nextExportStarted = deferred<void>();
+	const schedule = createBatchExportScheduler((_ctx, formats) => {
+		if (formats[0] === "epub") {
+			return Promise.reject(new Error("export failed"));
+		}
+		nextExportStarted.resolve();
+		return Promise.resolve();
+	});
+	const ctx = {
+		reply: () => {
+			replyAttempted.resolve();
+			return new Promise<never>(() => {});
+		},
+	};
+
+	schedule(ctx, ["epub"]);
+	await replyAttempted.promise;
+	schedule(ctx, ["md"]);
+
+	await nextExportStarted.promise;
+});
