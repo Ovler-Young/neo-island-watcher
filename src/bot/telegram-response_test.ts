@@ -92,6 +92,82 @@ Deno.test("non-JSON 413 and successful responses classify without ambiguity", as
 	);
 });
 
+Deno.test("non-JSON 429 retains only a usable Retry-After delay", async () => {
+	const retryingFetch = normalizeTelegramFetch(() =>
+		Promise.resolve(
+			new Response("<html>rate limited</html>", {
+				status: 429,
+				headers: { "Retry-After": "12" },
+			}),
+		),
+	);
+	const retryingPayload = await (
+		await retryingFetch("https://example.invalid")
+	).json();
+	assert(retryingPayload.error_code === 429, "429 status was not retained");
+	assert(
+		retryingPayload.parameters?.retry_after === 12,
+		"numeric Retry-After was not exposed in Telegram retry parameters",
+	);
+	const noDelayFetch = normalizeTelegramFetch(() =>
+		Promise.resolve(new Response("proxy response", { status: 429 })),
+	);
+	const noDelayPayload = await (
+		await noDelayFetch("https://example.invalid")
+	).json();
+	assert(
+		noDelayPayload.parameters === undefined,
+		"missing Retry-After fabricated a retry delay",
+	);
+
+	for (const retryAfter of [
+		"Wed, 21 Oct 2015 07:28:00 GMT",
+		"1.5",
+		"-1",
+		"9007199254740992",
+	]) {
+		const limitedFetch = normalizeTelegramFetch(() =>
+			Promise.resolve(
+				new Response("proxy response", {
+					status: 429,
+					headers: { "Retry-After": retryAfter },
+				}),
+			),
+		);
+		const payload = await (
+			await limitedFetch("https://example.invalid")
+		).json();
+		assert(
+			payload.parameters === undefined,
+			`unusable Retry-After value was retained: ${retryAfter}`,
+		);
+	}
+});
+
+Deno.test("bodyless non-JSON HTTP responses normalize without throwing", async () => {
+	const wrapped = normalizeTelegramFetch(() =>
+		Promise.resolve(new Response(null, { status: 204 })),
+	);
+	const response = await wrapped("https://example.invalid");
+	const payload = await response.json();
+
+	assert(
+		response.status === 200,
+		"synthetic response cannot carry its JSON body",
+	);
+	assert(payload.error_code === 422, "bodyless success used an API error code");
+	assert(
+		payload.description.includes("HTTP 204"),
+		"original bodyless response status was not retained",
+	);
+	assert(
+		classifyDeliveryError(
+			telegramError(payload.error_code, payload.description),
+		).category === "invalid_response",
+		"bodyless response was not classified as invalid",
+	);
+});
+
 Deno.test("delivery classification distinguishes rate limits, API, network, and conversion", () => {
 	const rateLimit = new GrammyError(
 		"limited",

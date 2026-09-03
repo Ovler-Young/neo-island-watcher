@@ -33,14 +33,20 @@ export function normalizeTelegramFetch(
 			const status = response.status;
 			const statusText = sanitizeStatusText(response.statusText);
 			const errorCode = status >= 400 && status <= 599 ? status : 422;
-			const responseStatus = status >= 200 && status <= 599 ? status : 200;
+			const retryAfter =
+				status === 429
+					? parseRetryAfter(response.headers.get("retry-after"))
+					: undefined;
 			return Response.json(
 				{
 					ok: false,
 					error_code: errorCode,
 					description: `${INVALID_RESPONSE_PREFIX}: HTTP ${status} ${statusText}`,
+					...(retryAfter === undefined
+						? {}
+						: { parameters: { retry_after: retryAfter } }),
 				},
-				{ status: responseStatus, statusText },
+				{ status: 200 },
 			);
 		}
 	};
@@ -96,4 +102,10 @@ function sanitizeStatusText(statusText: string): string {
 		.trim()
 		.slice(0, 80);
 	return sanitized || "Unknown Status";
+}
+
+function parseRetryAfter(value: string | null): number | undefined {
+	if (value === null || !/^\d+$/.test(value)) return undefined;
+	const seconds = Number(value);
+	return Number.isSafeInteger(seconds) && seconds >= 0 ? seconds : undefined;
 }
