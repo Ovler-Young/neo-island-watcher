@@ -1,4 +1,9 @@
 import type { EpubVolumeResult } from "../../../export/epub.ts";
+import {
+	type ClassifiedDeliveryError,
+	classifyDeliveryError,
+	type DeliveryErrorCategory,
+} from "../../telegram-response.ts";
 
 export const TELEGRAM_DOCUMENT_MAX_BYTES = 1_900_000_000;
 export const DOCUMENT_FALLBACK_CAPS = [
@@ -23,8 +28,20 @@ export class DirectUploadCapState {
 
 export const directUploadCapState = new DirectUploadCapState();
 
+export interface DirectEpubDeliveryIssue {
+	kind: "delivery" | "generation" | "oversized_section";
+	category: DeliveryErrorCategory;
+	startSection: number;
+	endSection: number;
+	filename?: string;
+	volumeNumber?: number;
+	status?: number;
+	code?: number;
+}
+
 export interface DirectEpubUploadResult {
 	sentFiles: number;
+	issues: DirectEpubDeliveryIssue[];
 	oversizedSectionIndexes: number[];
 	undeliveredSectionIndexes: number[];
 	deliveryFailed: boolean;
@@ -44,6 +61,8 @@ interface DirectEpubUploadOptions {
 		startSection: number,
 		endSection: number,
 	) => Promise<void>;
+	fullFilename?: string;
+	volumeFilename?: (volumeNumber: number) => string;
 	capState?: DirectUploadCapState;
 	fallbackCaps?: readonly number[];
 }
@@ -54,23 +73,31 @@ export async function uploadEpubDirectly(
 	const capState = options.capState ?? directUploadCapState;
 	const fallbackCaps = options.fallbackCaps ?? DOCUMENT_FALLBACK_CAPS;
 	const initialCap = capState.get();
+	const issues: DirectEpubDeliveryIssue[] = [];
 	let sentFiles = 0;
 	let nextVolumeNumber = 1;
 	let remainingStart = 0;
-	let uploadHasFailed = false;
-	const oversized = new Set<number>();
+	let confirmedSizeFailure = false;
+	let fullSizeFailure: ClassifiedDeliveryError | undefined;
 
 	if (options.fullData.length <= initialCap) {
 		try {
 			await options.uploadFull();
-			return {
-				sentFiles: 1,
-				oversizedSectionIndexes: [],
-				undeliveredSectionIndexes: [],
-				deliveryFailed: false,
-			};
-		} catch {
-			uploadHasFailed = true;
+			return buildResult(1, issues);
+		} catch (error) {
+			const classified = classifyDeliveryError(error);
+			if (classified.category !== "size_rejection") {
+				issues.push({
+					kind: "delivery",
+					...classified,
+					startSection: 0,
+					endSection: options.sectionCount,
+					filename: options.fullFilename,
+				});
+				return buildResult(0, issues);
+			}
+			confirmedSizeFailure = true;
+			fullSizeFailure = classified;
 		}
 	}
 
@@ -82,63 +109,112 @@ export async function uploadEpubDirectly(
 		.filter((cap) => cap <= initialCap && cap < options.fullData.length)
 		.sort((a, b) => b - a);
 
-	for (const cap of caps) {
+	if (caps.length === 0 && confirmedSizeFailure) {
+		issues.push({
+			kind: "delivery",
+			...(fullSizeFailure ?? { category: "size_rejection" }),
+			startSection: 0,
+			endSection: options.sectionCount,
+			filename: options.fullFilename,
+		});
+	}
+
+	for (const [capIndex, cap] of caps.entries()) {
 		if (remainingStart >= options.sectionCount) break;
 		let generated: EpubVolumeResult;
 		try {
 			generated = await options.generateVolumes(remainingStart, cap);
-		} catch {
-			return {
-				sentFiles,
-				oversizedSectionIndexes: [...oversized].sort((a, b) => a - b),
-				undeliveredSectionIndexes: sectionIndexes(
-					remainingStart,
-					options.sectionCount,
-				),
-				deliveryFailed: true,
-			};
+		} catch (error) {
+			issues.push({
+				kind: "generation",
+				...classifyDeliveryError(error, "conversion"),
+				startSection: remainingStart,
+				endSection: options.sectionCount,
+			});
+			break;
 		}
 
-		for (const index of generated.oversizedSectionIndexes) {
-			oversized.add(index);
-		}
-
-		let failedStart: number | undefined;
+		let retryFrom: number | undefined;
 		for (const volume of generated.volumes) {
+			const volumeNumber = nextVolumeNumber;
 			try {
 				await options.uploadVolume(
 					volume.data,
-					nextVolumeNumber,
+					volumeNumber,
 					volume.startSection,
 					volume.endSection,
 				);
-				if (uploadHasFailed) capState.publishSuccessfulFallback(cap);
+				if (confirmedSizeFailure) {
+					capState.publishSuccessfulFallback(cap);
+					confirmedSizeFailure = false;
+				}
 				sentFiles++;
 				nextVolumeNumber++;
-				remainingStart = volume.endSection;
-			} catch {
-				uploadHasFailed = true;
-				failedStart = volume.startSection;
-				remainingStart = failedStart;
-				break;
+				remainingStart = Math.max(remainingStart, volume.endSection);
+			} catch (error) {
+				const classified = classifyDeliveryError(error);
+				const hasSmallerCap = capIndex + 1 < caps.length;
+				if (classified.category === "size_rejection" && hasSmallerCap) {
+					confirmedSizeFailure = true;
+					retryFrom = volume.startSection;
+					remainingStart = retryFrom;
+					break;
+				}
+
+				issues.push({
+					kind: "delivery",
+					...classified,
+					startSection: volume.startSection,
+					endSection: volume.endSection,
+					filename: options.volumeFilename?.(volumeNumber),
+					volumeNumber,
+				});
+				nextVolumeNumber++;
+				remainingStart = Math.max(remainingStart, volume.endSection);
 			}
 		}
 
-		if (failedStart === undefined) {
-			remainingStart = options.sectionCount;
-			break;
+		for (const index of generated.oversizedSectionIndexes) {
+			if (retryFrom !== undefined && index >= retryFrom) continue;
+			issues.push({
+				kind: "oversized_section",
+				category: "size_rejection",
+				startSection: index,
+				endSection: index + 1,
+			});
 		}
+
+		if (retryFrom !== undefined) continue;
+		remainingStart = options.sectionCount;
+		break;
 	}
 
-	const undelivered =
-		remainingStart < options.sectionCount
-			? sectionIndexes(remainingStart, options.sectionCount)
-			: [];
+	return buildResult(sentFiles, issues);
+}
+
+function buildResult(
+	sentFiles: number,
+	issues: DirectEpubDeliveryIssue[],
+): DirectEpubUploadResult {
+	const oversizedSectionIndexes = issues
+		.filter((issue) => issue.kind === "oversized_section")
+		.flatMap((issue) => sectionIndexes(issue.startSection, issue.endSection));
+	const undeliveredSectionIndexes = [
+		...new Set(
+			issues
+				.filter((issue) => issue.kind !== "oversized_section")
+				.flatMap((issue) =>
+					sectionIndexes(issue.startSection, issue.endSection),
+				),
+		),
+	].sort((a, b) => a - b);
+
 	return {
 		sentFiles,
-		oversizedSectionIndexes: [...oversized].sort((a, b) => a - b),
-		undeliveredSectionIndexes: undelivered,
-		deliveryFailed: undelivered.length > 0 || sentFiles === 0,
+		issues,
+		oversizedSectionIndexes,
+		undeliveredSectionIndexes,
+		deliveryFailed: issues.some((issue) => issue.kind === "delivery"),
 	};
 }
 
