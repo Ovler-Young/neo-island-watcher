@@ -14,9 +14,11 @@ export interface ThreadFetchResult {
 	filteredMarkdown: string;
 	filteredPreamble: string;
 	filteredSections: string[];
+	filteredSectionPostIds: string[];
 	allMarkdown?: string;
 	allPreamble?: string;
 	allSections?: string[];
+	allSectionPostIds?: string[];
 	statusMsg: { message_id: number } | null;
 }
 
@@ -129,6 +131,7 @@ export async function fetchThreadById(
 			markdown: filteredMarkdown,
 			preamble: filteredPreamble,
 			sections: filteredSections,
+			sectionPostIds: filteredSectionPostIds,
 			threadData,
 		} = await formatThreadAsMarkdown(
 			threadId,
@@ -162,6 +165,7 @@ export async function fetchThreadById(
 		let allMarkdown: string | undefined;
 		let allPreamble: string | undefined;
 		let allSections: string[] | undefined;
+		let allSectionPostIds: string[] | undefined;
 		if (!threadState.writer.includes("*")) {
 			// Temporarily add * to writer to fetch all
 			const originalWriters = [...threadState.writer];
@@ -176,6 +180,7 @@ export async function fetchThreadById(
 			allMarkdown = result.markdown;
 			allPreamble = result.preamble;
 			allSections = result.sections;
+			allSectionPostIds = result.sectionPostIds;
 
 			// Restore writers (although we created a temp state or copy, it's safer not to mutate permanent state if we fetched it from DB,
 			// but here threadState might be from DB. Wait, getThreadState returns item from DB.
@@ -192,9 +197,11 @@ export async function fetchThreadById(
 			filteredMarkdown,
 			filteredPreamble,
 			filteredSections,
+			filteredSectionPostIds,
 			allMarkdown,
 			allPreamble,
 			allSections,
+			allSectionPostIds,
 			statusMsg,
 		};
 	} catch (error) {

@@ -145,10 +145,8 @@ Deno.test("non-size full upload failures do not select fallback or lower cap", a
 	assert(result.issues.length === 1, "full upload issue was not recorded");
 	assert(result.issues[0].category === "telegram_api", "wrong issue category");
 	assert(result.issues[0].filename === "thread.epub", "filename was omitted");
-	assert(
-		result.undeliveredSectionIndexes.length === 5,
-		"full range was not recorded",
-	);
+	assert(result.issues[0].startSection === 0, "full range start was lost");
+	assert(result.issues[0].endSection === 5, "full range end was lost");
 });
 
 Deno.test("one non-size volume failure records its range and continues later volumes", async () => {
@@ -179,10 +177,8 @@ Deno.test("one non-size volume failure records its range and continues later vol
 		delivered.join(",") === "1:0:2,3:4:6",
 		"later volume did not continue",
 	);
-	assert(
-		result.undeliveredSectionIndexes.join(",") === "2,3",
-		"failure expanded beyond its range",
-	);
+	assert(result.issues[0].startSection === 2, "failure range start was lost");
+	assert(result.issues[0].endSection === 4, "failure range end was lost");
 	assert(
 		result.issues[0].category === "invalid_response",
 		"failure was misclassified",
@@ -222,10 +218,8 @@ Deno.test("a lowest-cap size failure records only its range and continues", asyn
 		delivered.join(",") === "0:2,4:6",
 		"later lowest-cap volume was skipped",
 	);
-	assert(
-		result.undeliveredSectionIndexes.join(",") === "2,3",
-		"size failure expanded beyond its range",
-	);
+	assert(result.issues[0].startSection === 2, "size range start was lost");
+	assert(result.issues[0].endSection === 4, "size range end was lost");
 	assert(
 		result.issues[0].category === "size_rejection",
 		"size category was lost",
@@ -243,7 +237,10 @@ Deno.test("generation failures remain distinct from delivery failures", async ()
 		uploadVolume: () => Promise.resolve(),
 	});
 
-	assert(!result.deliveryFailed, "generation failure became delivery failure");
+	assert(
+		result.issues.length === 1,
+		"generation failure was not recorded once",
+	);
 	assert(
 		result.issues[0].kind === "generation",
 		"generation failure was not marked",
@@ -280,10 +277,8 @@ Deno.test("indivisible chapters are structured while adjacent volumes continue",
 	});
 
 	assert(delivered.join(",") === "0:1,2:3", "adjacent volumes were omitted");
-	assert(
-		result.oversizedSectionIndexes.join(",") === "1",
-		"oversized chapter was not reported",
-	);
+	assert(result.issues[0].startSection === 1, "oversized range start was lost");
+	assert(result.issues[0].endSection === 2, "oversized range end was lost");
 	assert(
 		result.issues[0].kind === "oversized_section",
 		"oversized issue was not structured",

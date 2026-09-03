@@ -107,6 +107,7 @@ export async function formatThreadAsMarkdown(
 	markdown: string;
 	preamble: string;
 	sections: string[];
+	sectionPostIds: string[];
 	threadData: ThreadData;
 }> {
 	const normalizedThreadId = Number(threadId);
@@ -126,6 +127,7 @@ export async function formatThreadAsMarkdown(
 	// 3. Format thread header
 	const preamble = `# ${threadData.title}\n\n`;
 	const sections = [formatThreadMessageMarkdown(threadData)];
+	const sectionPostIds = [threadData.id.toString()];
 	// Process replies
 	const repliesPerPage = 19;
 	for (let i = 0; i < threadData.Replies.length; i++) {
@@ -134,6 +136,7 @@ export async function formatThreadAsMarkdown(
 
 		if (shouldSendReply(reply, threadState)) {
 			sections.push(formatReplyMessageMarkdown(reply, threadIdStr, page));
+			sectionPostIds.push(reply.id.toString());
 		}
 	}
 	const content = renderThreadMarkdown(preamble, sections);
@@ -142,6 +145,7 @@ export async function formatThreadAsMarkdown(
 		markdown: content,
 		preamble,
 		sections,
+		sectionPostIds,
 		threadData,
 	};
 }

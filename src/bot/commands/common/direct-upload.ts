@@ -42,9 +42,6 @@ export interface DirectEpubDeliveryIssue {
 export interface DirectEpubUploadResult {
 	sentFiles: number;
 	issues: DirectEpubDeliveryIssue[];
-	oversizedSectionIndexes: number[];
-	undeliveredSectionIndexes: number[];
-	deliveryFailed: boolean;
 }
 
 interface DirectEpubUploadOptions {
@@ -196,31 +193,5 @@ function buildResult(
 	sentFiles: number,
 	issues: DirectEpubDeliveryIssue[],
 ): DirectEpubUploadResult {
-	const oversizedSectionIndexes = issues
-		.filter((issue) => issue.kind === "oversized_section")
-		.flatMap((issue) => sectionIndexes(issue.startSection, issue.endSection));
-	const undeliveredSectionIndexes = [
-		...new Set(
-			issues
-				.filter((issue) => issue.kind !== "oversized_section")
-				.flatMap((issue) =>
-					sectionIndexes(issue.startSection, issue.endSection),
-				),
-		),
-	].sort((a, b) => a - b);
-
-	return {
-		sentFiles,
-		issues,
-		oversizedSectionIndexes,
-		undeliveredSectionIndexes,
-		deliveryFailed: issues.some((issue) => issue.kind === "delivery"),
-	};
-}
-
-function sectionIndexes(start: number, end: number): number[] {
-	return Array.from(
-		{ length: Math.max(0, end - start) },
-		(_, index) => start + index,
-	);
+	return { sentFiles, issues };
 }
