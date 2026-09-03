@@ -1,15 +1,52 @@
-import { InputFile } from "grammy";
+import { type Context, InputFile } from "grammy";
 
 import { generateEpub } from "../../export/epub.ts";
 import { generatePdf } from "../../export/pdf.ts";
 import { exportToTelegraph } from "../../export/telegraph.ts";
 import { generateThreadFilename } from "../../utils/filename.ts";
 
+import { classifyDeliveryError } from "../telegram-response.ts";
 import type { CommandDefinition } from "../types.ts";
 import { fetchThread } from "./common/fetch-thread.ts";
 import { sendDocument } from "./common/file-utils.ts";
 import { createStatusUpdater } from "./common/status-updater.ts";
-import { handleGetAll, parseGetBatchRequest } from "./get-all.ts";
+import {
+	type BatchExportFormat,
+	handleGetAll,
+	parseGetBatchRequest,
+} from "./get-all.ts";
+
+const BATCH_EXPORT_FAILURE_MESSAGE =
+	"❌ /get all failed before delivery completed. Please run the command again.";
+
+type BatchExportContext = Pick<Context, "reply">;
+
+export function createBatchExportScheduler<C extends BatchExportContext>(
+	runBatch: (ctx: C, formats: BatchExportFormat[]) => Promise<void>,
+): (ctx: C, formats: BatchExportFormat[]) => void {
+	let tail = Promise.resolve();
+
+	return (ctx, formats) => {
+		const job = tail.then(() => runBatch(ctx, formats));
+		tail = job.catch(async (error) => {
+			const category = classifyDeliveryError(error, "conversion").category;
+			console.error(`Background /get all export failed; category=${category}`);
+			try {
+				await ctx.reply(BATCH_EXPORT_FAILURE_MESSAGE);
+			} catch (replyError) {
+				const replyCategory = classifyDeliveryError(
+					replyError,
+					"delivery",
+				).category;
+				console.error(
+					`Could not report background /get all failure; category=${replyCategory}`,
+				);
+			}
+		});
+	};
+}
+
+const scheduleBatchExport = createBatchExportScheduler(handleGetAll);
 
 export const get: CommandDefinition = {
 	name: "get",
@@ -31,7 +68,7 @@ export const get: CommandDefinition = {
 			return undefined;
 		}
 		if (batchRequest.kind === "batch") {
-			await handleGetAll(ctx, batchRequest.formats);
+			scheduleBatchExport(ctx, batchRequest.formats);
 			return undefined;
 		}
 
