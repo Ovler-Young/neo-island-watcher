@@ -1,8 +1,8 @@
 import { Bot } from "grammy";
-import { autoRetry } from "grammy/auto-retry";
 import { config } from "../config.ts";
 import { setupCommands } from "./commands.ts";
 import { normalizeTelegramFetch } from "./telegram-response.ts";
+import { telegramAutoRetry } from "./telegram-retry.ts";
 
 export const bot = new Bot(config.telegramBotToken, {
 	client: {
@@ -11,7 +11,7 @@ export const bot = new Bot(config.telegramBotToken, {
 	},
 });
 
-bot.api.config.use(autoRetry());
+bot.api.config.use(telegramAutoRetry());
 
 await setupCommands(bot);
 
